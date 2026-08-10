@@ -1,7 +1,7 @@
 # KiCad Agent Toolkit
 
-Portable Codex skills, engineering references, and deterministic checks for
-evidence-driven KiCad design and fabrication review.
+Portable Codex skills, an audited KiCad MCP fork, engineering references, and
+deterministic checks for evidence-driven KiCad design and fabrication review.
 
 This repository turns one successful ten-key macropad redesign into a reusable
 workflow. It does **not** claim that ERC, DRC, rendering, or Gerber parsing proves
@@ -21,22 +21,60 @@ documented physical bring-up tests pass.
 - `docs/sources/`: claim-to-source comparison and redistribution policy.
 - `docs/case-studies/`: lessons extracted from the ten-key USB-C board.
 - `examples/tenkey-macropad/`: sanitized design evidence and selected source files.
-- `scripts/`: portable installer, validator, and release checker.
-- `tests/`: public-interface tests for those scripts.
+- `pcb-agent`: one public CLI for install, diagnosis, validation, MCP testing,
+  and release generation.
+- `vendor/KiCAD-MCP-Server/`: pinned submodule for the audited MCP fork.
+- `toolchain.lock.json`: exact revisions, container digests, versions, licenses,
+  audit counts, and upstream test evidence.
+- `Dockerfile` and `compose.yaml`: sandboxed, reproducible release environment.
+- `tests/`: public-interface tests for the pipeline.
 
 ## Install on another machine
 
-Clone the repository, then run:
+Clone with submodules, inspect the plan, then install:
 
 ```bash
-./scripts/install.sh
-./scripts/validate.py --repo .
-./scripts/release-check.sh /path/to/project.kicad_pro
+git clone --recurse-submodules https://github.com/ReidSurmeier/kicad-agent-toolkit.git
+cd kicad-agent-toolkit
+./pcb-agent install --dry-run
+./pcb-agent install
+./pcb-agent doctor
+./pcb-agent validate
+./pcb-agent mcp test
 ```
 
 The installer respects `CODEX_HOME`; when it is unset, it uses `~/.codex`.
 Machine credentials belong in environment variables or an OS keychain. This
 repository contains no JLCPCB keys, GitHub tokens, or personal absolute paths.
+
+## Release a project
+
+```bash
+./pcb-agent release /path/to/Board.kicad_pro
+```
+
+This bundled release profile is intentionally JLCPCB-style and requires a
+project `.kibot.yaml`. It is not a universal manufacturer profile. Add and test
+a supplier-specific profile for another fabricator; do not just rename the ZIP.
+
+The default gate runs whole-project ERC and DRC, exports fabrication and
+assembly files, renders both PCB sides, parses every Gerber with PyGerber,
+parses the complete Gerber/drill set with Gerbv, runs the project `.kibot.yaml`
+in the digest-pinned container, verifies the ZIP CRC, hashes the evidence, and
+proves that the source files did not change. If `firmware/qmk/*/keyboard.json`
+is present, it also compiles the default keymap against the pinned QMK checkout
+and AVR toolchain. The upload artifact is
+`outputs/release/<project>/fabrication/<project>-JLCPCB.zip`.
+
+To run the entire release in a container, place the project directory in
+`PCB_PROJECT_DIR` and its project filename in `PCB_PROJECT_FILE`:
+
+```bash
+PCB_PROJECT_DIR=/path/to/project PCB_PROJECT_FILE=Board.kicad_pro docker compose run --rm pcb-agent
+```
+
+See [the full pipeline](docs/toolchain.md) for installation branches, MCP and
+JLCPCB credential boundaries, release evidence, CI, GitNexus, and limitations.
 
 ## Evidence policy
 

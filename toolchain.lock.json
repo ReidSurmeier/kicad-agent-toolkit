@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-08-10",
+  "mcp": {
+    "name": "KiCAD-MCP-Server",
+    "version": "2.6.0",
+    "transport": "stdio",
+    "upstream": "https://github.com/mixelpixx/KiCAD-MCP-Server.git",
+    "upstream_commit": "ccabbf0daff0db6e902e39d39ea734b018cd3eae",
+    "fork": "https://github.com/ReidSurmeier/KiCAD-MCP-Server.git",
+    "branch": "toolkit-v2.6.0-patched",
+    "commit": "3ab354ca891e905dcc987219845e4a93c2167f85",
+    "license": "MIT",
+    "audit": {
+      "production_vulnerabilities": 0,
+      "all_dependency_vulnerabilities": 0
+    },
+    "tests": {
+      "typescript_passed": 70,
+      "python_passed": 1710,
+      "python_skipped_hardware_or_platform": 31
+    }
+  },
+  "containers": {
+    "toolkit_release": {
+      "base": "ghcr.io/inti-cmnb/kicad10_auto@sha256:c154fc3457a4572c365a8c48aabd3ede76338476d7ef4c83aae2d9654f8181a8",
+      "platform": "linux/amd64",
+      "gerbv": "2.10.0-1+b1",
+      "node": "20.19.2+dfsg-1+deb13u2",
+      "npm": "9.2.0~ds1-3",
+      "python_mcp_lock": "requirements-mcp-python313.lock.txt"
+    },
+    "kicad_kibot": {
+      "image": "ghcr.io/inti-cmnb/kicad10_auto@sha256:c154fc3457a4572c365a8c48aabd3ede76338476d7ef4c83aae2d9654f8181a8",
+      "kicad_cli": "10.0.4",
+      "kibot": "1.9.1",
+      "license": "mixed; follow image component licenses"
+    },
+    "qmk": {
+      "image": "ghcr.io/qmk/qmk_cli@sha256:b7d7fa8fb4432b569931de5ad59098cb788f440ed61a62c5126746b71aee0f4a",
+      "qmk_cli": "1.2.0",
+      "qmk_commit": "9caa5f871ddb9813c7370708be62d7a3e1cfeb75",
+      "license": "GPL-2.0-or-later and component licenses"
+    }
+  },
+  "host_tools": {
+    "kicad-cli": {"verified": "10.0.5", "minimum": "10.0.0", "source": "https://www.kicad.org/download/"},
+    "gerbv": {"verified": "4.0", "source": "https://gerbv.github.io/"},
+    "pygerber": {"verified": "2.4.3", "source": "https://github.com/Argmaster/pygerber"},
+    "gitnexus": {"verified": "1.6.9", "source": "https://github.com/abhigyanpatwari/GitNexus", "license": "PolyForm-Noncommercial-1.0.0"},
+    "docker": {"verified": "29.6.1", "source": "https://docs.docker.com/engine/install/"},
+    "node": {"verified": "22.23.1", "minimum": "20.0.0", "source": "https://nodejs.org/"},
+    "python": {"verified": "3.9.6", "minimum": "3.9.0", "source": "https://www.python.org/"},
+    "codex": {"verified": "0.147.0", "source": "https://developers.openai.com/codex/cli/"}
+  }
+}

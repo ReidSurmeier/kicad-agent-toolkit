@@ -25,6 +25,18 @@ The authoritative clean-process command evidence is tied to the source hash.
 Outputs are regenerated from the reviewed source and parsed independently.
 Gerber/drill layers, outline, holes, mask, paste, legend, BOM, CPL, side,
 rotation, origin, component process, and manufacturer options are reconciled.
+For an assembly order, upload the exact BOM/CPL/package and reconcile the
+manufacturer preview for reference, package, side, rotation, polarity, DNP,
+origin, and process before granting assembly readiness. A fabrication-only
+release may mark this preview `not applicable`; it is not assembly-ready.
+
+The bundled `pcb-agent release` profile is explicitly a JLCPCB-style two-layer
+package and requires a project `.kibot.yaml` for its default cross-environment
+gate. Do not present its `*-JLCPCB.zip` as a profile for another manufacturer.
+For another process, create and test a manufacturer-specific KiBot/output
+profile or report the neutral native exports as incomplete pending that work.
+`--skip-container` omits independent KiBot evidence and cannot support the full
+pipeline claim.
 
 ## Physical test
 
@@ -37,9 +49,11 @@ exist; design checks cannot close it.
 
 - `ready`: every pre-fabrication gate has current evidence and no unaccepted
   blocker/major risk.
-- `ready with accepted risks`: all required gates pass except explicit, owned,
-  accepted risks.
+- `ready with accepted risks`: every required gate passes, no blocker or major
+  risk remains, and only explicit, owned, accepted minor risks or limitations
+  remain.
 - `not ready`: controlling evidence is missing, checks are stale/failed, or a
-  blocker/major risk remains.
+  blocker or major risk remains. Calling a major risk “accepted” does not change
+  this verdict.
 
 Report fabrication readiness and functional verification as separate verdicts.

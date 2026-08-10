@@ -38,6 +38,9 @@
   split-reference crossings, return stitching, and thermal paths.
 - Gerber/drill layer set, outline, PTH/NPTH, mask, paste, legend, BOM, CPL side,
   rotation, origin, and assembly-process assignments are independently checked.
+- When assembly is in scope, the exact uploaded BOM/CPL and manufacturer preview
+  agree on every reference, package, side, rotation, polarity, DNP, origin, and
+  process. Without that preview, fabrication may be ready but assembly is not.
 
 ## Evidence
 

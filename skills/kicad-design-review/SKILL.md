@@ -24,7 +24,9 @@ generated evidence and file readback over notes or prior success messages.
    run DRC in a clean process against the recorded source hash.
 5. **Manufacturing.** Regenerate outputs from the reviewed source. Inspect every
    Gerber and drill layer with an independent parser. Reconcile BOM population,
-   CPL side/rotation/origin, PTH-versus-SMT process, and the assembler preview.
+   CPL side/rotation/origin, PTH-versus-SMT process, and the assembler preview
+   when assembly is in scope. Without a preview, report fabrication and assembly
+   readiness separately.
 6. **Findings.** Classify each as blocker, major, minor, or informational. Name
    evidence, location/reference/net/layer, consequence, smallest safe correction,
    and the recheck required to close it.

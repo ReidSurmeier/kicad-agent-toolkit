@@ -1,0 +1,3 @@
+[submodule "vendor/KiCAD-MCP-Server"]
+	path = vendor/KiCAD-MCP-Server
+	url = https://github.com/ReidSurmeier/KiCAD-MCP-Server.git

@@ -1,0 +1,9 @@
+.git
+.venv
+.gitnexus
+**/__pycache__
+**/.pytest_cache
+vendor/KiCAD-MCP-Server/.git
+vendor/KiCAD-MCP-Server/node_modules
+vendor/KiCAD-MCP-Server/.venv
+examples/**/outputs

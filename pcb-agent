@@ -1,0 +1,850 @@
+#!/usr/bin/env python3
+"""Portable entry point for the KiCad agent pipeline."""
+
+from argparse import ArgumentParser, Namespace
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import select
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import zipfile
+
+
+def parser() -> ArgumentParser:
+    root = ArgumentParser(prog="pcb-agent", description="KiCad agent toolchain and release pipeline")
+    commands = root.add_subparsers(dest="command", required=True)
+    install = commands.add_parser("install", help="install skills, dependencies, and the KiCad MCP server")
+    install.add_argument(
+        "--codex-home",
+        type=Path,
+        default=Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))),
+    )
+    install.add_argument("--dry-run", action="store_true")
+    install.add_argument("--json", action="store_true", dest="as_json")
+    install.add_argument("--skills-only", action="store_true")
+    install.add_argument("--skip-system-tools", action="store_true")
+    install.add_argument("--skip-mcp-build", action="store_true")
+    install.add_argument("--skip-mcp-registration", action="store_true")
+    install.add_argument("--skip-qmk-setup", action="store_true")
+    install.add_argument("--skip-gitnexus", action="store_true")
+    doctor = commands.add_parser("doctor", help="report toolchain readiness")
+    doctor.add_argument("--json", action="store_true", dest="as_json")
+    validate = commands.add_parser("validate", help="validate this toolkit repository")
+    validate.add_argument("--json", action="store_true", dest="as_json")
+    validate.add_argument("--repo", type=Path, default=Path(__file__).resolve().parent)
+    mcp = commands.add_parser("mcp", help="manage and test the KiCad MCP server")
+    mcp_test = mcp.add_subparsers(dest="mcp_command", required=True).add_parser("test", help="smoke-test MCP")
+    mcp_test.add_argument("--json", action="store_true", dest="as_json")
+    mcp_test.add_argument("--server", type=Path)
+    mcp_test.add_argument("--timeout", type=float, default=20.0)
+    release = commands.add_parser("release", help="verify and package a KiCad project")
+    release.add_argument("project", type=Path)
+    release.add_argument("--output", type=Path)
+    release.add_argument("--skip-container", action="store_true")
+    release.add_argument("--json", action="store_true", dest="as_json")
+    return root
+
+
+def repository_report(root: Path) -> dict:
+    failures = []
+    skills = []
+    for directory in sorted((root / "skills").iterdir()):
+        if not directory.is_dir():
+            continue
+        skill_file = directory / "SKILL.md"
+        metadata = directory / "agents" / "openai.yaml"
+        if not skill_file.is_file() or not metadata.is_file():
+            failures.append(f"incomplete skill: {directory.name}")
+            continue
+        text = skill_file.read_text()
+        if f"name: {directory.name}" not in text or "description:" not in text or "TODO" in text:
+            failures.append(f"invalid skill metadata: {directory.name}")
+            continue
+        skills.append(directory.name)
+
+    lock_file = root / "toolchain.lock.json"
+    lock = json.loads(lock_file.read_text()) if lock_file.is_file() else {}
+    expected_mcp = lock.get("mcp", {})
+    mcp_dir = root / "vendor" / "KiCAD-MCP-Server"
+    package_file = mcp_dir / "package.json"
+    mcp = {
+        "version": None,
+        "commit": None,
+        "upstream_commit": expected_mcp.get("upstream_commit"),
+        "production_vulnerabilities": expected_mcp.get("audit", {}).get(
+            "production_vulnerabilities"
+        ),
+    }
+    if package_file.is_file():
+        mcp["version"] = json.loads(package_file.read_text()).get("version")
+        commit = subprocess.run(
+            ["git", "-C", str(mcp_dir), "rev-parse", "HEAD"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if commit.returncode == 0:
+            mcp["commit"] = commit.stdout.strip()
+        else:
+            provenance = mcp_dir / "TOOLKIT-PROVENANCE.json"
+            if provenance.is_file():
+                mcp["commit"] = json.loads(provenance.read_text()).get("commit")
+            else:
+                failures.append("MCP submodule is not initialized")
+    else:
+        failures.append("MCP package metadata is missing")
+
+    if mcp["version"] != expected_mcp.get("version") or mcp["commit"] != expected_mcp.get(
+        "commit"
+    ):
+        failures.append("MCP revision does not match the pinned toolchain")
+
+    return {
+        "result": "pass" if not failures else "fail",
+        "skills": skills,
+        "mcp": mcp,
+        "failures": failures,
+    }
+
+
+def validate_command(args: Namespace) -> int:
+    report = repository_report(args.repo.resolve())
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"repository validation: {report['result']}")
+        for failure in report["failures"]:
+            print(f"- {failure}")
+    return 0 if report["result"] == "pass" else 1
+
+
+def command_check(name: str, arguments: list[str]) -> dict:
+    executable = shutil.which(name)
+    if executable is None:
+        return {"status": "fail", "path": None, "version": None}
+    completed = subprocess.run(
+        [executable, *arguments],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    version = next((line.strip() for line in completed.stdout.splitlines() if line.strip()), None)
+    return {
+        "status": "pass" if completed.returncode == 0 else "fail",
+        "path": executable,
+        "version": version,
+    }
+
+
+def doctor_report(root: Path) -> dict:
+    commands = {
+        "codex": ["--version"],
+        "docker": ["--version"],
+        "gerbv": ["--version"],
+        "gitnexus": ["--version"],
+        "kicad-cli": ["--version"],
+        "node": ["--version"],
+        "npm": ["--version"],
+        "pygerber": ["--version"],
+        "python3": ["--version"],
+    }
+    tools = {name: command_check(name, arguments) for name, arguments in commands.items()}
+    mcp_build = root / "vendor" / "KiCAD-MCP-Server" / "dist" / "index.js"
+    registration = subprocess.run(
+        [shutil.which("codex") or "codex", "mcp", "get", "kicad"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    mcp = {
+        "build": "pass" if mcp_build.is_file() else "fail",
+        "codex_registration": "pass" if registration.returncode == 0 else "fail",
+    }
+    credential_names = ("JLCPCB_APP_ID", "JLCPCB_API_KEY", "JLCPCB_API_SECRET")
+    credentials = {
+        "jlcpcb": "configured" if all(os.environ.get(name) for name in credential_names) else "not configured"
+    }
+    passed = all(item["status"] == "pass" for item in tools.values()) and all(
+        value == "pass" for value in mcp.values()
+    )
+    return {
+        "result": "pass" if passed else "fail",
+        "tools": tools,
+        "mcp": mcp,
+        "credentials": credentials,
+    }
+
+
+def doctor_command(args: Namespace) -> int:
+    report = doctor_report(Path(__file__).resolve().parent)
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"toolchain doctor: {report['result']}")
+        for name, state in report["tools"].items():
+            print(f"- {name}: {state['status']} ({state['version'] or 'not found'})")
+        print(f"- MCP build: {report['mcp']['build']}")
+        print(f"- Codex MCP registration: {report['mcp']['codex_registration']}")
+        print(f"- JLCPCB credentials: {report['credentials']['jlcpcb']}")
+    return 0 if report["result"] == "pass" else 1
+
+
+def install_command(args: Namespace) -> int:
+    root = Path(__file__).resolve().parent
+    skills = sorted(directory.name for directory in (root / "skills").iterdir() if directory.is_dir())
+    prerequisite_commands = {
+        "codex": ["--version"],
+        "docker": ["--version"],
+        "gerbv": ["--version"],
+        "kicad-cli": ["--version"],
+        "node": ["--version"],
+        "npm": ["--version"],
+        "pygerber": ["--version"],
+        "python3": ["--version"],
+    }
+    if not args.skip_gitnexus:
+        prerequisite_commands["gitnexus"] = ["--version"]
+    prerequisites = {
+        name: command_check(name, arguments)
+        for name, arguments in prerequisite_commands.items()
+    }
+    report = {
+        "result": "pass",
+        "mode": "dry-run" if args.dry_run else "apply",
+        "codex_home": str(args.codex_home.resolve()),
+        "skills": skills,
+        "prerequisites": prerequisites,
+        "destinations": {
+            "skills": str((args.codex_home.resolve() / "skills")),
+            "mcp": str((args.codex_home.resolve() / "tools" / "kicad-mcp-server")),
+            "qmk": str((args.codex_home.resolve() / "tools" / "qmk_firmware")),
+        },
+        "components": [
+            "KiCAD-MCP-Server",
+            "KiCad + KiBot container",
+            "Gerbv",
+            "GitNexus",
+            "PyGerber",
+            "QMK container",
+        ],
+    }
+    if not args.dry_run:
+        skills_target = args.codex_home.resolve() / "skills"
+        skills_target.mkdir(parents=True, exist_ok=True)
+        backup_root = (
+            args.codex_home.resolve()
+            / "backups"
+            / "kicad-agent-toolkit"
+            / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            / "skills"
+        )
+        for skill in skills:
+            source = root / "skills" / skill
+            destination = skills_target / skill
+            staging = skills_target / f".{skill}.installing"
+            if staging.exists():
+                shutil.rmtree(staging)
+            shutil.copytree(source, staging)
+            if destination.exists():
+                backup_root.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(destination), str(backup_root / skill))
+            os.replace(staging, destination)
+        report["installed_skills_path"] = str(skills_target)
+        if not args.skills_only:
+            try:
+                if not args.skip_system_tools:
+                    missing = [
+                        tool
+                        for tool in prerequisite_commands
+                        if shutil.which(tool) is None
+                    ]
+                    if missing:
+                        raise RuntimeError(
+                            "missing required tools: "
+                            + ", ".join(missing)
+                            + "; follow skills/kicad-toolchain-setup/references/platforms.md"
+                        )
+
+                lock = json.loads((root / "toolchain.lock.json").read_text())
+                source = root / "vendor" / "KiCAD-MCP-Server"
+                target = args.codex_home.resolve() / "tools" / "kicad-mcp-server"
+                staging = target.parent / ".kicad-mcp-server.installing"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if staging.exists():
+                    shutil.rmtree(staging)
+                shutil.copytree(
+                    source,
+                    staging,
+                    ignore=shutil.ignore_patterns(".git", "node_modules", ".venv", "__pycache__", ".pytest_cache"),
+                )
+                provenance = {
+                    "source": lock["mcp"]["fork"],
+                    "version": lock["mcp"]["version"],
+                    "commit": lock["mcp"]["commit"],
+                    "installed_at": datetime.now(timezone.utc).isoformat(),
+                }
+                (staging / "TOOLKIT-PROVENANCE.json").write_text(
+                    json.dumps(provenance, indent=2, sort_keys=True) + "\n"
+                )
+                if target.exists():
+                    backup = (
+                        args.codex_home.resolve()
+                        / "backups"
+                        / "kicad-agent-toolkit"
+                        / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                        / "kicad-mcp-server"
+                    )
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(target), str(backup))
+                os.replace(staging, target)
+
+                mcp_report = {"path": str(target)}
+                if args.skip_mcp_build:
+                    mcp_report["build"] = "skipped"
+                else:
+                    subprocess.run(["npm", "ci"], cwd=target, check=True)
+                    subprocess.run(["npm", "run", "build"], cwd=target, check=True)
+                    venv = target / ".venv"
+                    subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+                    subprocess.run(
+                        [str(venv / "bin" / "python"), "-m", "pip", "install", "-r", str(target / "requirements.txt")],
+                        check=True,
+                    )
+                    mcp_report["build"] = "pass"
+
+                if args.skip_mcp_registration:
+                    mcp_report["registration"] = "skipped"
+                else:
+                    kicad_python = os.environ.get("KICAD_PYTHON")
+                    if not kicad_python:
+                        mac_python = Path(
+                            "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3"
+                        )
+                        kicad_python = str(mac_python if mac_python.is_file() else Path(sys.executable))
+                    purelib = subprocess.run(
+                        [
+                            str(target / ".venv" / "bin" / "python"),
+                            "-c",
+                            "import sysconfig; print(sysconfig.get_paths()['purelib'])",
+                        ],
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                    ).stdout.strip()
+                    codex = shutil.which("codex") or "codex"
+                    subprocess.run([codex, "mcp", "remove", "kicad"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        [
+                            codex,
+                            "mcp",
+                            "add",
+                            "kicad",
+                            "--env",
+                            f"KICAD_PYTHON={kicad_python}",
+                            "--env",
+                            f"PYTHONPATH={purelib}",
+                            "--env",
+                            "LOG_LEVEL=info",
+                            "--",
+                            shutil.which("node") or "node",
+                            str(target / "dist" / "index.js"),
+                        ],
+                        check=True,
+                    )
+                    mcp_report["registration"] = "pass"
+                report["mcp"] = mcp_report
+
+                if args.skip_qmk_setup:
+                    report["qmk"] = {"status": "skipped"}
+                else:
+                    qmk_commit = lock["containers"]["qmk"]["qmk_commit"]
+                    qmk_target = args.codex_home.resolve() / "tools" / "qmk_firmware"
+                    existing_commit = None
+                    if qmk_target.is_dir():
+                        existing = subprocess.run(
+                            ["git", "-C", str(qmk_target), "rev-parse", "HEAD"],
+                            text=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                        existing_commit = existing.stdout.strip() if existing.returncode == 0 else None
+                    if existing_commit != qmk_commit:
+                        qmk_staging = qmk_target.parent / ".qmk_firmware.installing"
+                        if qmk_staging.exists():
+                            stale = qmk_target.parent / f".qmk_firmware.stale-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+                            shutil.move(str(qmk_staging), str(stale))
+                        qmk_staging.mkdir(parents=True)
+                        subprocess.run(["git", "init", str(qmk_staging)], check=True)
+                        subprocess.run(
+                            ["git", "-C", str(qmk_staging), "remote", "add", "origin", "https://github.com/qmk/qmk_firmware.git"],
+                            check=True,
+                        )
+                        subprocess.run(
+                            ["git", "-C", str(qmk_staging), "fetch", "--depth", "1", "origin", qmk_commit],
+                            check=True,
+                        )
+                        subprocess.run(
+                            ["git", "-C", str(qmk_staging), "checkout", "--detach", "FETCH_HEAD"],
+                            check=True,
+                        )
+                        subprocess.run(
+                            ["git", "-C", str(qmk_staging), "submodule", "update", "--init", "--recursive", "--depth", "1"],
+                            check=True,
+                        )
+                        if qmk_target.exists():
+                            qmk_backup = (
+                                args.codex_home.resolve()
+                                / "backups"
+                                / "kicad-agent-toolkit"
+                                / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                                / "qmk_firmware"
+                            )
+                            qmk_backup.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(qmk_target), str(qmk_backup))
+                        os.replace(qmk_staging, qmk_target)
+                    report["qmk"] = {"status": "pass", "path": str(qmk_target), "commit": qmk_commit}
+            except (OSError, KeyError, subprocess.CalledProcessError, RuntimeError) as error:
+                report["result"] = "fail"
+                report["error"] = str(error)
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"installation {report['mode']}: {report['result']}")
+        for component in report["components"]:
+            print(f"- {component}")
+    return 0 if report["result"] == "pass" else 1
+
+
+def _mcp_read(process: subprocess.Popen, timeout: float) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([process.stdout], [], [], min(0.25, deadline - time.monotonic()))
+        if ready:
+            line = process.stdout.readline()
+            if not line:
+                break
+            return json.loads(line)
+        if process.poll() is not None:
+            break
+    raise RuntimeError("MCP server did not return a protocol response before timeout")
+
+
+def mcp_test_command(args: Namespace) -> int:
+    root = Path(__file__).resolve().parent
+    server = (args.server or root / "vendor" / "KiCAD-MCP-Server" / "dist" / "index.js").resolve()
+    environment = os.environ.copy()
+    kicad_python_error = None
+    if "KICAD_PYTHON" not in environment:
+        mac_python = Path(
+            "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3"
+        )
+        candidates = [mac_python, Path("/usr/bin/python3"), Path(sys.executable)]
+        kicad_python = None
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            probe = subprocess.run(
+                [str(candidate), "-c", "import pcbnew"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if probe.returncode == 0:
+                kicad_python = candidate
+                break
+        if kicad_python is None:
+            kicad_python_error = "no Python interpreter with the pcbnew module was found"
+        else:
+            environment["KICAD_PYTHON"] = str(kicad_python)
+    mcp_root = server.parent.parent
+    venv_python = mcp_root / ".venv" / "bin" / "python"
+    if venv_python.is_file():
+        purelib = subprocess.run(
+            [str(venv_python), "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+            text=True,
+            stdout=subprocess.PIPE,
+            check=True,
+        ).stdout.strip()
+        environment["PYTHONPATH"] = os.pathsep.join(
+            value for value in (purelib, environment.get("PYTHONPATH", "")) if value
+        )
+    report = {"result": "fail", "server_path": str(server)}
+    process = None
+    try:
+        if kicad_python_error:
+            raise RuntimeError(kicad_python_error)
+        if not server.is_file():
+            raise RuntimeError(f"MCP server build is missing: {server}")
+        process = subprocess.Popen(
+            [shutil.which("node") or "node", str(server)],
+            cwd=mcp_root,
+            env=environment,
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=1,
+        )
+
+        def send(message: dict) -> None:
+            process.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
+            process.stdin.flush()
+
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pcb-agent-smoke", "version": "1"},
+                },
+            }
+        )
+        initialized = _mcp_read(process, args.timeout)
+        if initialized.get("id") != 1 or "result" not in initialized:
+            raise RuntimeError(f"invalid initialize response: {initialized}")
+        send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+        send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+        tools_response = _mcp_read(process, args.timeout)
+        advertised = sorted(tool["name"] for tool in tools_response.get("result", {}).get("tools", []))
+        required = {"list_tool_categories", "get_category_tools", "search_tools"}
+        missing = sorted(required - set(advertised))
+        if missing:
+            raise RuntimeError("MCP routing tools are missing: " + ", ".join(missing))
+        report.update(
+            {
+                "result": "pass",
+                "server": initialized["result"].get("serverInfo", {}),
+                "protocol_version": initialized["result"].get("protocolVersion"),
+                "advertised_tool_count": len(advertised),
+                "advertised_tools": advertised,
+            }
+        )
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
+        report["error"] = str(error)
+    finally:
+        if process is not None:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"MCP smoke test: {report['result']}")
+        if report["result"] == "pass":
+            print(f"- server: {report['server'].get('name')} {report['server'].get('version')}")
+            print(f"- advertised tools: {report['advertised_tool_count']}")
+        else:
+            print(f"- error: {report.get('error', 'unknown error')}")
+    return 0 if report["result"] == "pass" else 1
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _run_release_step(command: list[str], log: Path, cwd: Path) -> None:
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("$ " + " ".join(command) + "\n\n" + completed.stdout)
+    if completed.returncode != 0:
+        raise RuntimeError(f"release step failed ({command[0]}), see {log}")
+
+
+def _resolve_project(project: Path) -> tuple[Path, Path, Path]:
+    project = project.resolve()
+    if project.is_dir():
+        candidates = sorted(project.glob("*.kicad_pro"))
+        if len(candidates) != 1:
+            raise RuntimeError(f"expected exactly one .kicad_pro in {project}, found {len(candidates)}")
+        project = candidates[0]
+    if project.suffix != ".kicad_pro" or not project.is_file():
+        raise RuntimeError(f"KiCad project is missing: {project}")
+    schematic = project.with_suffix(".kicad_sch")
+    board = project.with_suffix(".kicad_pcb")
+    if not schematic.is_file():
+        raise RuntimeError(f"schematic is missing: {schematic}")
+    if not board.is_file():
+        raise RuntimeError(f"PCB is missing: {board}")
+    return project, schematic, board
+
+
+def release_command(args: Namespace) -> int:
+    report = {"result": "fail", "checks": {}}
+    staging = None
+    release_workspace = None
+    try:
+        canonical_project, canonical_schematic, canonical_board = _resolve_project(args.project)
+        name = canonical_project.stem
+        output = (args.output or canonical_project.parent / "outputs" / "release" / name).resolve()
+        staging = output.parent / f".{output.name}.building"
+        if staging.exists():
+            stale = output.parent / f".{output.name}.stale-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            shutil.move(str(staging), str(stale))
+        staging.mkdir(parents=True)
+        logs = staging / "logs"
+        fabrication = staging / "fabrication"
+        review = staging / "review"
+        fabrication.mkdir()
+        review.mkdir()
+        source_hashes = {
+            str(path): _sha256(path)
+            for path in (canonical_project, canonical_schematic, canonical_board)
+        }
+        release_workspace = tempfile.TemporaryDirectory(prefix="pcb-agent-source-")
+        working_source = Path(release_workspace.name) / "source"
+        shutil.copytree(
+            canonical_project.parent,
+            working_source,
+            ignore=shutil.ignore_patterns("outputs", "*.lck", "*.kicad_prl", "*-backups", "*.bak"),
+        )
+        project = working_source / canonical_project.name
+        schematic = working_source / canonical_schematic.name
+        board = working_source / canonical_board.name
+
+        _run_release_step(
+            [
+                "kicad-cli", "sch", "erc", "--severity-all", "--exit-code-violations",
+                "--format", "json", "-o", str(review / "erc.json"), str(schematic),
+            ],
+            logs / "erc.log",
+            project.parent,
+        )
+        report["checks"]["erc"] = "pass"
+        _run_release_step(
+            [
+                "kicad-cli", "pcb", "drc", "--severity-all", "--exit-code-violations",
+                "--all-track-errors", "--schematic-parity", "--refill-zones", "--format", "json",
+                "-o", str(review / "drc.json"), str(board),
+            ],
+            logs / "drc.log",
+            project.parent,
+        )
+        report["checks"]["drc"] = "pass"
+
+        exports = [
+            (["kicad-cli", "sch", "export", "netlist", "--format", "kicadxml", "-o", str(review / f"{name}.xml"), str(schematic)], "netlist"),
+            (["kicad-cli", "sch", "export", "bom", "-o", str(fabrication / f"{name}-BOM.csv"), str(schematic)], "bom"),
+            (["kicad-cli", "sch", "export", "pdf", "-o", str(review / f"{name}-schematic.pdf"), str(schematic)], "schematic-pdf"),
+            (["kicad-cli", "pcb", "export", "pos", "--format", "csv", "--units", "mm", "--side", "both", "-o", str(fabrication / f"{name}-positions.csv"), str(board)], "positions"),
+            (["kicad-cli", "pcb", "render", "--side", "top", "--quality", "high", "-o", str(review / f"{name}-top.png"), str(board)], "render-top"),
+            (["kicad-cli", "pcb", "render", "--side", "bottom", "--quality", "high", "-o", str(review / f"{name}-bottom.png"), str(board)], "render-bottom"),
+        ]
+        for command, label in exports:
+            _run_release_step(command, logs / f"{label}.log", project.parent)
+            report["checks"][label] = "pass"
+
+        _run_release_step(
+            [
+                "kicad-cli", "pcb", "export", "gerbers", "--no-protel-ext", "--check-zones",
+                "--layers", "F.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts",
+                "-o", str(fabrication), str(board),
+            ],
+            logs / "gerbers.log",
+            project.parent,
+        )
+        _run_release_step(
+            [
+                "kicad-cli", "pcb", "export", "drill", "--excellon-separate-th", "--generate-map",
+                "--map-format", "pdf", "-o", str(fabrication), str(board),
+            ],
+            logs / "drill.log",
+            project.parent,
+        )
+
+        gerbers = sorted(fabrication.glob("*.gbr"))
+        drills = sorted(fabrication.glob("*.drl"))
+        if len(gerbers) < 9 or len(drills) < 2:
+            raise RuntimeError(f"incomplete fabrication set: {len(gerbers)} Gerbers, {len(drills)} drill files")
+        _run_release_step(
+            ["gerbv", "--export=png", f"--output={review / 'gerbv-composite.png'}", *map(str, gerbers + drills)],
+            logs / "gerbv.log",
+            project.parent,
+        )
+        report["checks"]["gerbv"] = "pass"
+        pygerber_dir = review / "pygerber"
+        pygerber_dir.mkdir()
+        for gerber in gerbers:
+            _run_release_step(
+                ["pygerber", "render", "raster", "-o", str(pygerber_dir / f"{gerber.stem}.png"), str(gerber)],
+                logs / "pygerber" / f"{gerber.stem}.log",
+                project.parent,
+            )
+        report["checks"]["pygerber"] = "pass"
+
+        archive = fabrication / f"{name}-JLCPCB.zip"
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+            for path in gerbers + drills:
+                bundle.write(path, path.name)
+        with zipfile.ZipFile(archive) as bundle:
+            corrupt = bundle.testzip()
+            if corrupt is not None:
+                raise RuntimeError(f"fabrication archive CRC failed: {corrupt}")
+        report["checks"]["archive_crc"] = "pass"
+        if args.skip_container:
+            report["checks"]["container"] = "skipped"
+        else:
+            lock = json.loads((Path(__file__).resolve().parent / "toolchain.lock.json").read_text())
+            image = lock["containers"]["kicad_kibot"]["image"]
+            kibot_config = project.parent / ".kibot.yaml"
+            if not kibot_config.is_file():
+                raise RuntimeError(f"KiBot configuration is missing: {kibot_config}")
+            kibot_output = staging / "kibot"
+            kibot_output.mkdir()
+            with tempfile.TemporaryDirectory(prefix="pcb-agent-kibot-") as temporary:
+                container_source = Path(temporary) / "source"
+                shutil.copytree(
+                    project.parent,
+                    container_source,
+                    ignore=shutil.ignore_patterns("outputs", "*.lck", "*-backups", "*.bak"),
+                )
+                uid_gid = f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "1000:1000"
+                _run_release_step(
+                    [
+                        "docker", "run", "--rm", "--platform", "linux/amd64", "--user", uid_gid,
+                        "--mount", f"type=bind,src={container_source},dst=/work",
+                        "--mount", f"type=bind,src={kibot_output},dst=/out",
+                        "--workdir", "/work", "--env", "HOME=/tmp/kibot-home", image,
+                        "kibot", "-c", "/work/.kibot.yaml", "-e", f"/work/{schematic.name}",
+                        "-b", f"/work/{board.name}", "-d", "/out",
+                    ],
+                    logs / "kibot-container.log",
+                    project.parent,
+                )
+            container_zip = kibot_output / "fabrication" / f"{name}-JLCPCB.zip"
+            if not container_zip.is_file():
+                raise RuntimeError(f"KiBot container did not create fabrication archive: {container_zip}")
+            report["checks"]["container"] = "pass"
+
+            keyboards = sorted((project.parent / "firmware" / "qmk").glob("*/keyboard.json"))
+            if keyboards:
+                if len(keyboards) != 1:
+                    raise RuntimeError(f"expected one QMK keyboard definition, found {len(keyboards)}")
+                keyboard_dir = keyboards[0].parent
+                keyboard_name = keyboard_dir.name
+                qmk_home = Path(
+                    os.environ.get(
+                        "QMK_HOME",
+                        str(Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "tools" / "qmk_firmware"),
+                    )
+                ).resolve()
+                if not (qmk_home / "quantum").is_dir():
+                    raise RuntimeError(f"pinned QMK checkout is missing; run pcb-agent install: {qmk_home}")
+                firmware_output = staging / "firmware"
+                firmware_output.mkdir()
+                qmk_image = lock["containers"]["qmk"]["image"]
+                with tempfile.TemporaryDirectory(prefix="pcb-agent-qmk-build-") as qmk_temporary:
+                    qmk_build = Path(qmk_temporary)
+                    _run_release_step(
+                        [
+                            "docker", "run", "--rm", "--platform", "linux/amd64", "--user", uid_gid,
+                            "--mount", f"type=bind,src={qmk_home},dst=/qmk_firmware",
+                            "--mount", f"type=bind,src={keyboard_dir},dst=/qmk_firmware/keyboards/{keyboard_name},readonly",
+                            "--mount", f"type=bind,src={qmk_build},dst=/qmk_firmware/.build",
+                            "--workdir", "/qmk_firmware", qmk_image,
+                            "qmk", "compile", "-kb", keyboard_name, "-km", "default",
+                        ],
+                        logs / "qmk-firmware.log",
+                        project.parent,
+                    )
+                    built_hex = sorted(qmk_build.glob("*.hex"))
+                    if not built_hex:
+                        raise RuntimeError("QMK completed without producing a HEX firmware image")
+                    for extension in (".hex", ".elf", ".map"):
+                        for artifact in sorted(qmk_build.glob(f"*{extension}")):
+                            shutil.copy2(artifact, firmware_output / artifact.name)
+                firmware_files = sorted(firmware_output.glob("*.hex"))
+                report["checks"]["qmk_firmware"] = "pass"
+                report["firmware"] = {
+                    "file": str(output / "firmware" / firmware_files[0].name),
+                    "sha256": _sha256(firmware_files[0]),
+                }
+            else:
+                report["checks"]["qmk_firmware"] = "not applicable"
+
+        unchanged = all(_sha256(Path(path)) == digest for path, digest in source_hashes.items())
+        if not unchanged:
+            raise RuntimeError("KiCad source changed during release generation")
+        report["checks"]["source_unchanged"] = "pass"
+        report.update(
+            {
+                "result": "pass",
+                "project": str(canonical_project),
+                "output": str(output),
+                "fabrication_archive": str(output / "fabrication" / archive.name),
+                "gerber_count": len(gerbers),
+                "drill_count": len(drills),
+                "limitations": [
+                    "ERC/DRC and file parsing do not prove assembled hardware functionality.",
+                    "Manufacturer DFM review and the documented physical bring-up tests remain required.",
+                ],
+            }
+        )
+        (staging / "release-report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        artifacts = sorted(path for path in staging.rglob("*") if path.is_file() and path.name != "SHA256SUMS")
+        (staging / "SHA256SUMS").write_text(
+            "".join(f"{_sha256(path)}  {path.relative_to(staging)}\n" for path in artifacts)
+        )
+        if output.exists():
+            backup = output.parent / f"{output.name}.backup-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            shutil.move(str(output), str(backup))
+        os.replace(staging, output)
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
+        report["error"] = str(error)
+    finally:
+        if release_workspace is not None:
+            release_workspace.cleanup()
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"release: {report['result']}")
+        if report["result"] == "pass":
+            print(f"- fabrication archive: {report['fabrication_archive']}")
+        else:
+            print(f"- error: {report.get('error', 'unknown error')}")
+    return 0 if report["result"] == "pass" else 1
+
+
+def main() -> int:
+    args = parser().parse_args()
+    if args.command == "install":
+        return install_command(args)
+    if args.command == "doctor":
+        return doctor_command(args)
+    if args.command == "validate":
+        return validate_command(args)
+    if args.command == "mcp" and args.mcp_command == "test":
+        return mcp_test_command(args)
+    if args.command == "release":
+        return release_command(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

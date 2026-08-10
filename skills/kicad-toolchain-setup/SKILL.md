@@ -13,18 +13,30 @@ the release path must remain operable from a terminal and clean process.
 1. Inspect OS/architecture, package manager, Codex home, KiCad version, Python,
    Node, Docker, GitHub CLI, and existing MCP configuration. Preserve working
    installations and report version conflicts.
-2. Read [platforms.md](references/platforms.md), select the matching branch, and
-   install KiCad, KiBot, Gerbv, PyGerber, GitNexus, and the KiCad MCP server from
-   their pinned upstream sources.
-3. Run the repository installer. It copies only the three skill bundles into
-   `${CODEX_HOME:-~/.codex}/skills` and never copies credentials.
-4. Register the MCP server using environment variables or an OS keychain for any
-   secret. Never place API keys in Git, skill files, shell history, or examples.
-5. Run `scripts/doctor.sh` and retain its machine-readable report. Confirm
+2. Run `./pcb-agent install --dry-run --json`, inspect its `prerequisites` and
+   `destinations`, read [platforms.md](references/platforms.md), and resolve any
+   missing host prerequisites. Use `./pcb-agent doctor --json` for the detailed
+   installed-version and registration state.
+3. Run `./pcb-agent install`. It atomically installs the three skill bundles,
+   stages the pinned audited MCP fork under `CODEX_HOME/tools`, builds its Node
+   and Python environments, and registers its stdio command with Codex. Existing
+   toolkit installations are moved into timestamped recoverable backups.
+4. Do not persist JLCPCB credentials on the user's behalf. Have the user inject
+   them into the Codex process through inherited environment variables or a
+   user-owned OS keychain wrapper. Use the exact names `JLCPCB_APP_ID`,
+   `JLCPCB_API_KEY`, and `JLCPCB_API_SECRET`. Never place their values in Git,
+   Codex skill files, shell history, examples, or generated reports.
+5. Run `./pcb-agent doctor --json` and retain its machine-readable report. Confirm
    `kicad-cli`, ERC/DRC, Gerber/drill export, independent parsing, KiBot, MCP tool
    discovery, and GitNexus indexing on a disposable fixture project.
-6. Restart Codex, verify that all three skills are discoverable, and run the
-   repository validation suite.
+6. Run `./pcb-agent validate`, `./pcb-agent mcp test`, and
+   `./pcb-agent release examples/tenkey-macropad/source/TenKeyMacroPad.kicad_pro`.
+   Restart Codex and confirm the three installed skills are discoverable.
+
+The bundled release command is a JLCPCB-style two-layer profile and expects the
+project's `.kibot.yaml`. A missing configuration blocks the default release.
+For a different manufacturer, add a manufacturer-specific, test-covered output
+profile before claiming release readiness; do not merely rename the ZIP.
 
 ## Portability rules
 
@@ -41,6 +53,8 @@ the release path must remain operable from a terminal and clean process.
 
 ## Secrets boundary
 
-Use placeholders such as `JLCPCB_ACCESS_KEY` and `JLCPCB_SECRET_KEY` in examples.
+Use placeholders such as `JLCPCB_API_KEY` and `JLCPCB_API_SECRET` in examples.
 The setup process may verify that variables exist, but it must never print their
-values or serialize them into reports.
+values or serialize them into reports. If the variables are absent, report the
+API as `not configured` and continue with offline sourcing/release checks; do not
+invent a persistence mechanism.

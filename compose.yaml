@@ -1,0 +1,15 @@
+services:
+  pcb-agent:
+    build:
+      context: .
+    image: kicad-agent-toolkit:local
+    platform: linux/amd64
+    working_dir: /workspace
+    volumes:
+      - ${PCB_PROJECT_DIR:-./examples/tenkey-macropad/source}:/workspace
+    command:
+      - release
+      - /workspace/${PCB_PROJECT_FILE:-TenKeyMacroPad.kicad_pro}
+      - --output
+      - /workspace/outputs/release
+      - --skip-container
