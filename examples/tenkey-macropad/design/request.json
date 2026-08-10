@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "request_id": "TENKEY-REV-A-001",
+  "title": "Ten-key USB-C QMK macropad Rev A",
+  "raw_request": "Engineer, document, and validate a reusable natural-language-to-KiCad PCB design system, then use existing repository references to deliver a manufacturing-ready, working 10-key USB keypad/macropad with evidence, automated checks, firmware, fabrication/assembly outputs, BOM, and validation documentation. Do not claim physical operation before prototype bring-up.",
+  "requirements": [
+    {
+      "id": "REQ-FUNC-001",
+      "category": "functional",
+      "statement": "Provide ten independently reportable keys using a diode-protected 2\u00d75 matrix and default USB HID keycodes F13 through F22.",
+      "priority": "must",
+      "verification_method": "Schematic/netlist-to-QMK contract audit, firmware compile, then P001 all-key and ghosting test.",
+      "status": "defined",
+      "units": null,
+      "source": "User request and canonical matrix architecture"
+    },
+    {
+      "id": "REQ-USB-001",
+      "category": "electrical",
+      "statement": "Operate as a USB 2.0 full-speed bus-powered device from a reversible USB-C receptacle in both plug orientations.",
+      "priority": "must",
+      "verification_method": "ERC/DRC and topology audit now; P001 current-limited plug-orientation enumeration test before hardware claim.",
+      "status": "defined",
+      "units": "5 V; 100 mA descriptor",
+      "source": "USB Type-C and ATmega32U4 evidence"
+    },
+    {
+      "id": "REQ-PROT-001",
+      "category": "electrical",
+      "statement": "Include CC Rd termination, resettable input protection, USB ESD protection, series damping, local decoupling, RESET and ISP recovery.",
+      "priority": "must",
+      "verification_method": "Evidence/schematic review, exact BOM, and connectivity audit.",
+      "status": "defined",
+      "units": "5.1 k\u03a9; 250 mA hold; 22 \u03a9",
+      "source": "Manufacturer evidence and engineering calculations"
+    },
+    {
+      "id": "REQ-PCB-001",
+      "category": "pcb",
+      "statement": "Use a two-layer 101\u00d773 mm board with four M2 holes, 19.05 mm key grid, reviewed placement, GND planes, and documented rules.",
+      "priority": "must",
+      "verification_method": "Native stats, DRC, render/Gerber review, and mechanical contract.",
+      "status": "defined",
+      "units": "mm",
+      "source": "Accepted Rev A mechanical baseline"
+    },
+    {
+      "id": "REQ-PCB-002",
+      "category": "pcb",
+      "statement": "Reserve the user-facing front for SW1 through SW10; place every other populated electrical component, including all SMT, reset, ISP, and USB-C, on the underside.",
+      "priority": "must",
+      "verification_method": "Automated footprint-side audit, top/bottom assembly drawings, 3D renders, and CPL side review.",
+      "status": "defined",
+      "units": null,
+      "source": "User-requested single-sided electronics assembly contract"
+    },
+    {
+      "id": "REQ-CAD-001",
+      "category": "quality",
+      "statement": "Release exact schematic/PCB parity with zero KiCad ERC violations, DRC violations, unconnected items, and schematic-parity issues.",
+      "priority": "must",
+      "verification_method": "Fresh official KiCad 10 release gates with exit-code enforcement.",
+      "status": "defined",
+      "units": null,
+      "source": "PCB design system release policy"
+    },
+    {
+      "id": "REQ-BOM-001",
+      "category": "procurement",
+      "statement": "Provide an exact-MPN BOM covering all 44 schematic components and a reviewed SMT placement list.",
+      "priority": "must",
+      "verification_method": "Automated schematic coverage and CPL count checks plus documented orientation policy.",
+      "status": "defined",
+      "units": "44 components",
+      "source": "Release workflow"
+    },
+    {
+      "id": "REQ-FW-001",
+      "category": "firmware",
+      "statement": "Provide reproducibly compiled pinned-QMK ATmega32U4 firmware consistent with hardware matrix/ISP/USB pins and documented recovery.",
+      "priority": "must",
+      "verification_method": "Pinned container build, SHA-256, and 35-check netlist/firmware contract audit.",
+      "status": "defined",
+      "units": null,
+      "source": "QMK and hardware contract"
+    },
+    {
+      "id": "REQ-MFG-001",
+      "category": "manufacturing",
+      "statement": "Provide Gerber/drill, BOM, CPL, IPC-D-356, IPC-2581, assembly drawings, STEP, notes, archives, and hashes suitable for supplier DFM/RFQ.",
+      "priority": "must",
+      "verification_method": "Release verifier, archive CRC/member audit, independent Gerber render, and manifest hash verification.",
+      "status": "defined",
+      "units": null,
+      "source": "Release policy"
+    },
+    {
+      "id": "REQ-TEST-001",
+      "category": "test",
+      "statement": "Before any working/production claim, fabricate P001 and pass current, rail, clock, USB-orientation, enumeration, DFU/ISP, all-key, ghosting, and soak acceptance tests.",
+      "priority": "must",
+      "verification_method": "Execute docs/bring-up-plan.md and archive signed measurements/logs.",
+      "status": "defined",
+      "units": null,
+      "source": "Hardware validation policy"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "Rev A is a standalone bare-board macropad; enclosure and switch plate are outside scope.",
+      "status": "accepted",
+      "source_required": false
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Two-layer 1.6 mm FR-4 and short USB full-speed routing are used without a controlled-impedance claim.",
+      "status": "accepted",
+      "source_required": true
+    },
+    {
+      "id": "ASM-003",
+      "statement": "CHERRY MX1A-E1NW PCB-mount switches are inserted from the front/user side after all underside SMT assembly; all populated non-switch electronics are on the underside.",
+      "status": "accepted",
+      "source_required": true
+    },
+    {
+      "id": "ASM-004",
+      "statement": "Prototype firmware uses VID/PID FEED:0010 only for internal P001 bring-up.",
+      "status": "accepted",
+      "source_required": true
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-001",
+      "question": "How is the USB-C VBUS via-in-pad fabrication blocker removed?",
+      "release_blocking": false,
+      "resolved": true,
+      "answer": "J1 was changed to GCT USB4085-GF-A. Its contacts are plated through-holes and its VBUS escapes use ordinary external vias, so no VIPPO process remains. J1 requires a separate THT/wave-selective/manual assembly step."
+    },
+    {
+      "id": "Q-002",
+      "question": "Which owned USB VID/PID will be used commercially?",
+      "release_blocking": true,
+      "resolved": true,
+      "answer": "None is assigned in Rev A. FEED:0010 is explicitly prototype-only; commercial distribution is prohibited until an owned/authorized identity is substituted and firmware is rebuilt."
+    },
+    {
+      "id": "Q-003",
+      "question": "Does the board fit an enclosure or plate?",
+      "release_blocking": false,
+      "resolved": true,
+      "answer": "Not claimed; Rev A scope is bare-board. A future enclosure release must obtain switch models and complete an independent mechanical fit check."
+    }
+  ]
+}

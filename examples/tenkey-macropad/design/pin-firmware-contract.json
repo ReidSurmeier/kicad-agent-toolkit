@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "project": "TenKeyMacroPad Rev A",
+  "mcu": {
+    "reference": "U1",
+    "mpn": "ATMEGA32U4-AU",
+    "package": "TQFP-44",
+    "clock_hz": 16000000
+  },
+  "matrix": {
+    "diode_direction": "COL2ROW",
+    "diode_orientation": "anode (pad 2) toward switch/column; cathode (pad 1, marked) toward row",
+    "rows": [
+      {
+        "net": "ROW0",
+        "avr_port": "D0",
+        "package_pin": "18",
+        "qmk_index": 0
+      },
+      {
+        "net": "ROW1",
+        "avr_port": "D1",
+        "package_pin": "19",
+        "qmk_index": 1
+      }
+    ],
+    "columns": [
+      {
+        "net": "COL0",
+        "avr_port": "B4",
+        "package_pin": "28",
+        "qmk_index": 0
+      },
+      {
+        "net": "COL1",
+        "avr_port": "B5",
+        "package_pin": "29",
+        "qmk_index": 1
+      },
+      {
+        "net": "COL2",
+        "avr_port": "B6",
+        "package_pin": "30",
+        "qmk_index": 2
+      },
+      {
+        "net": "COL3",
+        "avr_port": "C6",
+        "package_pin": "31",
+        "qmk_index": 3
+      },
+      {
+        "net": "COL4",
+        "avr_port": "D7",
+        "package_pin": "27",
+        "qmk_index": 4
+      }
+    ]
+  },
+  "isp": [
+    {
+      "signal": "SCK",
+      "net": "ISP_SCK",
+      "avr_port": "B1",
+      "package_pin": "9",
+      "header_pin": "3"
+    },
+    {
+      "signal": "MOSI",
+      "net": "ISP_MOSI",
+      "avr_port": "B2",
+      "package_pin": "10",
+      "header_pin": "4"
+    },
+    {
+      "signal": "MISO",
+      "net": "ISP_MISO",
+      "avr_port": "B3",
+      "package_pin": "11",
+      "header_pin": "1"
+    },
+    {
+      "signal": "RESET",
+      "net": "RESET",
+      "package_pin": "13",
+      "header_pin": "5"
+    },
+    {
+      "signal": "VTARGET",
+      "net": "+5V",
+      "header_pin": "2"
+    },
+    {
+      "signal": "GND",
+      "net": "GND",
+      "header_pin": "6"
+    }
+  ],
+  "usb": {
+    "d_minus_package_pin": "3",
+    "d_plus_package_pin": "4",
+    "vbus_package_pin": "7",
+    "ucap_package_pin": "6",
+    "full_speed": true,
+    "series_ohms": 22,
+    "esd_part": "USBLC6-2SC6",
+    "cc_rd_ohms": 5100,
+    "max_power_descriptor_mA": 100
+  },
+  "boot_and_fuses": {
+    "bootloader": "Atmel DFU bootloader_atmega32u4_1.0.0.hex",
+    "qmk_reference": "references/qmk/isp_flashing_guide.md at pinned QMK commit",
+    "lfuse": "0x5E",
+    "hfuse_jtag_disabled": "0xD9",
+    "efuse": "0xF3",
+    "dfu_usb_id": "03EB:2FF4",
+    "warning": "Never write fuses until device signature, supply, oscillator, bootloader image hash, programmer and commands have been independently reviewed. Incorrect clock fuses can require high-voltage recovery.",
+    "guaranteed_recovery": "J2 AVR-ISP-6",
+    "application_dfu_entry": "Tap Key 10 for F22; hold Key 10 and press Key 1 for QK_BOOT. This requires a functioning application/bootloader.",
+    "hardware_hwb_access": false
+  },
+  "usb_identity": {
+    "application_vid": "0xFEED",
+    "application_pid": "0x0010",
+    "status": "prototype-only; replace with owned/licensed IDs before commercial distribution"
+  }
+}

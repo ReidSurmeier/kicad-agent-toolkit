@@ -1,0 +1,138 @@
+{
+  "jobs": [
+    {
+      "description": "Release ERC",
+      "id": "631083a6-2b6b-44c8-8f0e-f63c23b79234",
+      "settings": {
+        "description": "Schematic electrical-rules report",
+        "fail_on_error": true,
+        "format": "json",
+        "output_filename": "reports/TenKeyMacroPad-erc.json",
+        "severity": 48,
+        "units": "mm"
+      },
+      "type": "sch_erc"
+    },
+    {
+      "description": "Release PCB DRC",
+      "id": "eb49815e-24e1-492a-9388-00953f1778cb",
+      "settings": {
+        "description": "Error-level PCB DRC; the release script separately gates schematic parity",
+        "fail_on_error": true,
+        "format": "json",
+        "output_filename": "reports/TenKeyMacroPad-drc-errors.json",
+        "parity": false,
+        "report_all_track_errors": true,
+        "severity": 32,
+        "units": "mm"
+      },
+      "type": "pcb_drc"
+    },
+    {
+      "description": "Manufacturing BOM",
+      "id": "a13f345f-1592-4dcc-8777-20b3501af81c",
+      "settings": {
+        "bom_format_preset_name": "CSV",
+        "bom_preset_name": "",
+        "description": "Grouped bill of materials",
+        "exclude_dnp": true,
+        "field_delimiter": ",",
+        "fields_group_by": ["Value", "Footprint"],
+        "fields_labels": ["Item", "References", "Quantity", "Value", "Footprint", "Datasheet", "Description"],
+        "fields_ordered": ["${ITEM_NUMBER}", "Reference", "${QUANTITY}", "__Value", "__Footprint", "Datasheet", "Description"],
+        "filter_string": "",
+        "include_excluded_from_bom": false,
+        "keep_line_breaks": false,
+        "keep_tabs": false,
+        "output_filename": "assembly/TenKeyMacroPad-BOM.csv",
+        "ref_delimiter": ",",
+        "ref_range_delimiter": "",
+        "sort_asc": true,
+        "sort_field": "Reference",
+        "string_delimiter": "\""
+      },
+      "type": "sch_export_bom"
+    },
+    {
+      "description": "JLCPCB Gerbers",
+      "id": "e652650b-7c03-44c0-96fc-8071a00a0088",
+      "settings": {
+        "black_and_white": false,
+        "create_gerber_job_file": true,
+        "crossout_dnp_footprints_on_fab_layers": true,
+        "description": "Two-layer copper, paste, silk, mask, and profile",
+        "disable_aperture_macros": true,
+        "drawing_sheet": "",
+        "drill_shape": "full",
+        "hide_dnp_footprints_on_fab_layers": false,
+        "include_netlist_attributes": false,
+        "layers": ["F.Cu", "B.Cu", "F.Paste", "B.Paste", "F.SilkS", "B.SilkS", "F.Mask", "B.Mask", "Edge.Cuts"],
+        "layers_to_include_on_all_layers": [],
+        "mirror": false,
+        "negative": false,
+        "output_filename": "fabrication",
+        "plot_drawing_sheet": false,
+        "plot_footprint_values": false,
+        "plot_pad_numbers": false,
+        "plot_ref_des": true,
+        "precision": 6,
+        "sketch_dnp_footprints_on_fab_layers": true,
+        "sketch_pads_on_fab_layers": false,
+        "subtract_solder_mask_from_silk": true,
+        "use_drill_origin": false,
+        "use_protel_file_extension": true,
+        "use_x2_format": false
+      },
+      "type": "pcb_export_gerbers"
+    },
+    {
+      "description": "JLCPCB Excellon drills",
+      "id": "f87267f7-eb32-4e94-8ee8-863c10704b98",
+      "settings": {
+        "description": "Separate plated/non-plated metric drill files and Gerber maps",
+        "drill_origin": "abs",
+        "excellon.combine_pth_npth": false,
+        "excellon.minimal_header": false,
+        "excellon.mirror_y": false,
+        "excellon.oval_drill_route": false,
+        "format": "excellon",
+        "generate_map": true,
+        "gerber_precision": 6,
+        "map_format": "gerberx2",
+        "output_dir": "fabrication/",
+        "units": "mm",
+        "zero_format": "decimal"
+      },
+      "type": "pcb_export_drill"
+    },
+    {
+      "description": "Component positions",
+      "id": "508076ce-058c-41b0-a8ea-c62fa690bdd0",
+      "settings": {
+        "description": "Front and back assembly position files",
+        "exclude_dnp": true,
+        "exclude_footprints_with_th": false,
+        "format": "csv",
+        "gerber_board_edge": true,
+        "negate_bottom_x": false,
+        "output_filename": "assembly/TenKeyMacroPad-position",
+        "side": "both",
+        "single_file": false,
+        "smd_only": false,
+        "units": "mm",
+        "use_drill_place_file_origin": false
+      },
+      "type": "pcb_export_pos"
+    }
+  ],
+  "meta": {"version": 1},
+  "outputs": [
+    {
+      "description": "Fabrication release",
+      "id": "75a1579c-30d6-4e09-a597-476368537d16",
+      "only": [],
+      "settings": {"output_path": "outputs/release/native"},
+      "type": "folder"
+    }
+  ]
+}

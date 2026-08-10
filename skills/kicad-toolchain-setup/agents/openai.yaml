@@ -1,0 +1,4 @@
+interface:
+  display_name: "KiCad Toolchain Setup"
+  short_description: "Install the portable KiCad agent stack"
+  default_prompt: "Use $kicad-toolchain-setup to install and verify the KiCad agent toolchain on this machine."

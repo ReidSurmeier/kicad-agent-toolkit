@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name "TenKeyMacroPad")(type "KiCad")(uri "${KIPRJMOD}/TenKeyMacroPad.pretty")(options "")(descr "Pinned project-local footprints"))
+)

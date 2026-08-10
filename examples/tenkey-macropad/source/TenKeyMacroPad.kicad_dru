@@ -1,0 +1,40 @@
+(version 1)
+
+(rule "USB trace width"
+  (condition "A.NetClass == 'USB_Diff'")
+  (constraint track_width (min 0.20mm) (opt 0.20mm) (max 0.20mm))
+  (constraint clearance (min 0.20mm)))
+
+(rule "USB connector pair geometry"
+  (condition "A.NetName == 'USB_CONN+' || A.NetName == 'USB_CONN-'")
+  (constraint diff_pair_gap (min 0.20mm) (opt 0.20mm))
+  # The 16-pin USB4085 exposes duplicated D+/D- contacts in an interleaved
+  # order. This bound covers only their mandatory merge/crossover fanout; the
+  # downstream run is held at the 0.20-mm target edge gap.
+  (constraint diff_pair_uncoupled (max 16.5mm))
+  (constraint skew (max 4.00mm)))
+
+(rule "USB protected pair geometry"
+  (condition "A.NetName == 'USB_PROT+' || A.NetName == 'USB_PROT-'")
+  (constraint diff_pair_gap (min 0.20mm) (opt 0.20mm))
+  (constraint diff_pair_uncoupled (max 5.5mm))
+  (constraint skew (max 1.00mm)))
+
+(rule "USB MCU pair geometry"
+  (condition "A.NetName == 'USB_MCU+' || A.NetName == 'USB_MCU-'")
+  (constraint diff_pair_gap (min 0.20mm) (opt 0.20mm))
+  (constraint diff_pair_uncoupled (max 5.0mm))
+  (constraint skew (max 4.00mm)))
+
+(rule "Power minimum width"
+  (condition "A.NetClass == 'Power_15mil'")
+  (constraint track_width (min 0.381mm)))
+
+# The stock KiCad USB4085 footprint reproduces GCT's 0.85-mm contact pitch
+# with 0.70-mm PTH pads, giving 0.15 mm copper-to-copper clearance between
+# adjacent connector pins. Scope this manufacturer-land-pattern exception
+# only to two objects belonging to J1; all other copper remains at 0.20 mm
+# or greater and the project-wide drilled-hole clearance remains 0.25 mm.
+(rule "USB4085 internal contact-pad clearance"
+  (condition "A.Reference == 'J1' && B.Reference == 'J1'")
+  (constraint clearance (min 0.15mm)))

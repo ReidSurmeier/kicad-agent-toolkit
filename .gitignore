@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+build/
+dist/
+outputs/
+*.lck
+*.kicad_prl
+*.ses
+*.dsn
+.env
+.env.*
+secrets.*

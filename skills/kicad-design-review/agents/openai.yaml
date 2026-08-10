@@ -1,0 +1,4 @@
+interface:
+  display_name: "KiCad Design Review"
+  short_description: "Audit KiCad designs and fab releases"
+  default_prompt: "Use $kicad-design-review to audit this KiCad project and its manufacturing package."

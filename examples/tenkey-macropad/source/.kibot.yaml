@@ -1,0 +1,135 @@
+kibot:
+  version: 1
+
+global:
+  output: '%f-%i.%x'
+
+preflight:
+  check_zone_fills: true
+  erc:
+    dir: reports
+    output: '%f-erc.%x'
+    format: [JSON, HTML]
+    warnings_as_errors: true
+  drc:
+    dir: reports
+    output: '%f-drc.%x'
+    format: [JSON, HTML]
+    all_track_errors: true
+    ignore_unconnected: false
+    schematic_parity: true
+    warnings_as_errors: false
+
+outputs:
+  - name: gerbers
+    comment: JLCPCB-compatible two-layer Gerbers, including paste layers
+    type: gerber
+    dir: fabrication
+    options:
+      exclude_edge_layer: true
+      exclude_pads_from_silkscreen: true
+      plot_sheet_reference: false
+      plot_footprint_refs: true
+      plot_footprint_values: false
+      force_plot_invisible_refs_vals: false
+      tent_vias: true
+      use_protel_extensions: true
+      create_gerber_job_file: true
+      disable_aperture_macros: true
+      gerber_precision: 4.6
+      use_gerber_x2_attributes: false
+      use_gerber_net_attributes: false
+      line_width: 0.1
+      subtract_mask_from_silk: true
+      use_aux_axis_as_origin: false
+    layers:
+      - F.Cu
+      - B.Cu
+      - F.Paste
+      - B.Paste
+      - F.SilkS
+      - B.SilkS
+      - F.Mask
+      - B.Mask
+      - Edge.Cuts
+
+  - name: drills
+    comment: Separate plated and non-plated metric Excellon drill files and Gerber maps
+    type: excellon
+    dir: fabrication
+    options:
+      pth_and_npth_single_file: false
+      pth_id: '-PTH'
+      npth_id: '-NPTH'
+      metric_units: true
+      map: gerber
+      route_mode_for_oval_holes: false
+      output: '%f%i.%x'
+      use_aux_axis_as_origin: false
+
+  - name: fabrication_zip
+    comment: Exact Gerber and drill archive for JLCPCB upload
+    type: compress
+    dir: fabrication
+    options:
+      output: '%f-JLCPCB.%x'
+      files:
+        - from_output: gerbers
+          dest: /
+          filter: '.*\.(gtl|gbl|gtp|gbp|gto|gbo|gts|gbs|gm1)$'
+        - from_output: drills
+          dest: /
+          filter: '.*\.drl$'
+
+  - name: bom
+    comment: Grouped manufacturing bill of materials
+    type: bom
+    dir: assembly
+    options:
+      output: '%f-BOM.%x'
+      format: CSV
+      exclude_marked_in_sch: true
+      parse_value: false
+      group_fields: [Value, Footprint]
+      columns:
+        - Row
+        - References
+        - Quantity Per PCB
+        - Value
+        - Footprint
+        - Datasheet
+        - Description
+      csv:
+        quote_all: true
+        hide_pcb_info: false
+        hide_stats_info: false
+
+  - name: positions
+    comment: Combined top and bottom component placement data
+    type: position
+    dir: assembly
+    options:
+      output: '%f-position.%x'
+      format: CSV
+      units: millimeters
+      separate_files_for_front_and_back: false
+      only_smd: false
+      use_aux_axis_as_origin: false
+
+  - name: schematic_pdf
+    comment: Release schematic PDF
+    type: pdf_sch_print
+    dir: documentation
+    options:
+      output: '%f-schematic.%x'
+      all_pages: true
+      background_color: false
+      frame: true
+
+  - name: board_stats
+    comment: Machine-readable PCB statistics
+    type: pcb_stats
+    dir: reports
+    options:
+      output: '%f-board-stats.%x'
+      format: json

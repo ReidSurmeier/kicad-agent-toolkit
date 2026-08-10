@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "SRC-MCU",
+      "title": "ATmega16U4/ATmega32U4 8-bit AVR USB Microcontroller Datasheet",
+      "tier": "A",
+      "url": "https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7766-8-bit-AVR-ATmega16U4-32U4_Datasheet.pdf",
+      "revision": "Atmel-7766, retrieved edition",
+      "accessed_at": "2026-08-10",
+      "sha256": "8e8c81dd4119062397bc08d677e7033d7abb4292628414c4e6e0a234cc53203a",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/atmega32u4-datasheet.pdf",
+      "applies_to": [
+        "BLOCK-MCU",
+        "BLOCK-CLOCK",
+        "BLOCK-PROGRAM"
+      ]
+    },
+    {
+      "id": "SRC-AVR-HW",
+      "title": "AVR Microcontroller Hardware Design Considerations AN2519",
+      "tier": "A",
+      "url": "https://ww1.microchip.com/downloads/en/AppNotes/AN2519-AVR-Microcontroller-Hardware-Design-Considerations-00002519B.pdf",
+      "revision": "AN2519 revision B",
+      "accessed_at": "2026-08-10",
+      "sha256": "26b325f16f526c5dfb060db8088e93d7a410800b626b4264bf55d69f98b07816",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/microchip-an2519.pdf",
+      "applies_to": [
+        "BLOCK-MCU",
+        "BLOCK-CLOCK",
+        "BLOCK-PROGRAM"
+      ]
+    },
+    {
+      "id": "SRC-ESD",
+      "title": "USBLC6-2 very low capacitance ESD protection datasheet",
+      "tier": "A",
+      "url": "https://www.st.com/resource/en/datasheet/usblc6-2.pdf",
+      "revision": "Retrieved manufacturer-content edition; byte hash controls",
+      "accessed_at": "2026-08-10",
+      "sha256": "caf3acd091f488dfca24de6dbca5acffe67522c4e10a3c6a50472f131e97012a",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/usblc6-2-datasheet.pdf",
+      "applies_to": [
+        "BLOCK-USB-ESD"
+      ]
+    },
+    {
+      "id": "SRC-CONN",
+      "title": "GCT USB4085 USB Type-C receptacle drawing",
+      "tier": "A",
+      "url": "https://gct.co/files/drawings/usb4085.pdf",
+      "revision": "Drawing USB4085; byte hash controls",
+      "accessed_at": "2026-08-10",
+      "sha256": "39afb82c5104579e8c2db4f4e758825c48cab1c4b06d4c61c62056470ff09e9e",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/usb4085-drawing.pdf",
+      "applies_to": [
+        "BLOCK-USB-C",
+        "BLOCK-MECHANICAL"
+      ]
+    },
+    {
+      "id": "SRC-XTAL",
+      "title": "Abracon ABM8 crystal series datasheet",
+      "tier": "A",
+      "url": "https://abracon.com/Resonators/abm8.pdf",
+      "revision": "ABM8 series retrieved edition; exact suffix controlled by BOM",
+      "accessed_at": "2026-08-10",
+      "sha256": "564ac331d8bf38b4ae1222444b0d9cfea3a6ba29148a8be906b2e0ffe40471d8",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/abm8-datasheet.pdf",
+      "applies_to": [
+        "BLOCK-CLOCK"
+      ]
+    },
+    {
+      "id": "SRC-SWITCH",
+      "title": "CHERRY MX series datasheet/drawing",
+      "tier": "A",
+      "url": "https://cdn.sparkfun.com/datasheets/Components/Switches/MX%20Series.pdf",
+      "revision": "MX series retrieved edition",
+      "accessed_at": "2026-08-10",
+      "sha256": "e1efd1dc784f1bd5ec34260a2575e7ac065b911dfc85eefbba1f836cfcbd3376",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/cherry-mx-series.pdf",
+      "applies_to": [
+        "BLOCK-MATRIX",
+        "BLOCK-MECHANICAL"
+      ]
+    },
+    {
+      "id": "SRC-RESET",
+      "title": "Alps Alpine SKQGADE010 product record",
+      "tier": "A",
+      "url": "https://tech.alpsalpine.com/e/products/detail/SKQGADE010/",
+      "revision": "Product page retrieved 2026-08-09",
+      "accessed_at": "2026-08-10",
+      "sha256": "875c85363a055d1b13c7a9c05882fa27075089ff5e4b8ec733ff26711b414422",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/alps-skqgade010-product.html",
+      "applies_to": [
+        "BLOCK-PROGRAM",
+        "BLOCK-MECHANICAL"
+      ]
+    },
+    {
+      "id": "SRC-FUSE",
+      "title": "Littelfuse 1206L PolySwitch resettable PTC datasheet",
+      "tier": "A",
+      "url": "https://files.allicdata.com/pdf/ds/2054/1206L025YR%20datasheet.pdf",
+      "revision": "1206L series retrieved edition",
+      "accessed_at": "2026-08-10",
+      "sha256": "d951d302232d65b70e2d9cb0ca8a977da327abb286e3fa493536b13ded6a6f2c",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "internal-only",
+      "local_path": "references/datasheets/littelfuse-1206l-series-polyfuse-datasheet.pdf",
+      "applies_to": [
+        "BLOCK-USB-C"
+      ]
+    },
+    {
+      "id": "SRC-TYPEC",
+      "title": "USB Type-C cable and connector specification release page",
+      "tier": "A",
+      "url": "https://www.usb.org/document-library/usb-type-cr-cable-and-connector-specification-release-25",
+      "revision": "Release 2.5 page; design subset reviewed for USB 2.0 sink",
+      "accessed_at": "2026-08-10",
+      "sha256": "1d15b94538e17052d44d70a98e37c1564d904c29436f7b18eb2fb0ddbae2d742",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "link-only",
+      "local_path": "references/datasheets/usb-if-type-c-specification-release-page.html",
+      "applies_to": [
+        "BLOCK-USB-C"
+      ]
+    },
+    {
+      "id": "SRC-QMK",
+      "title": "QMK ISP flashing guide at pinned source revision",
+      "tier": "B",
+      "url": "https://raw.githubusercontent.com/qmk/qmk_firmware/9caa5f871ddb9813c7370708be62d7a3e1cfeb75/docs/isp_flashing_guide.md",
+      "revision": "9caa5f871ddb9813c7370708be62d7a3e1cfeb75",
+      "accessed_at": "2026-08-10",
+      "sha256": "baf4c51295bec58c12effe3072816c367ea183ae248308125d44bee657847221",
+      "license": "Manufacturer/standards/QMK content; retained for internal design evidence; upstream terms control.",
+      "redistribution": "redistributable",
+      "local_path": "references/qmk/isp_flashing_guide.md",
+      "applies_to": [
+        "BLOCK-PROGRAM",
+        "BLOCK-MATRIX"
+      ]
+    }
+  ],
+  "block_records": [
+    {
+      "id": "BLOCK-MCU",
+      "function": "ATmega32U4-AU USB MCU, 5 V supply/decoupling, reset, UCAP, and pin map.",
+      "primary_source_ids": [
+        "SRC-MCU"
+      ],
+      "reference_source_ids": [
+        "SRC-AVR-HW"
+      ],
+      "adaptations": [
+        "Uses 16 MHz external crystal, all supply pins locally decoupled, 1 \u00b5F UCAP, 10 k\u03a9 reset pull-up, prototype USB descriptor limited to 100 mA."
+      ],
+      "checks": [
+        "ERC and schematic parity are zero; pin/firmware contract passes 35 checks; power budget is documented."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-USB-C",
+      "function": "USB-C USB2 sink front end, CC termination, VBUS fuse/bulk, reversible USB2 data pins.",
+      "primary_source_ids": [
+        "SRC-TYPEC",
+        "SRC-CONN"
+      ],
+      "reference_source_ids": [
+        "SRC-FUSE"
+      ],
+      "adaptations": [
+        "Uses USB4085 USB2-only through-hole receptacle, independent 5.1 k\u03a9 CC resistors, 250 mA PPTC, and 4.7 \u00b5F bulk to retain capacitance margin. VBUS contacts escape without via-in-pad."
+      ],
+      "checks": [
+        "Connectivity audit confirms both plug orientations; DRC passes the connector-only 0.15 mm adjacent-pad clearance; J1 is explicitly assigned to a post-reflow THT soldering process."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-USB-ESD",
+      "function": "Low-capacitance USB D+/D\u2212 ESD protection between connector and series resistors.",
+      "primary_source_ids": [
+        "SRC-ESD"
+      ],
+      "reference_source_ids": [
+        "SRC-CONN"
+      ],
+      "adaptations": [
+        "USBLC6-2SC6 is placed close to connector; protected pair passes through 22 \u03a9 resistors to MCU."
+      ],
+      "checks": [
+        "Exact MPN and SOT-23-6 pad geometry audited; USB length/width/topology audit passes."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-CLOCK",
+      "function": "16 MHz crystal oscillator and load capacitors.",
+      "primary_source_ids": [
+        "SRC-XTAL",
+        "SRC-MCU"
+      ],
+      "reference_source_ids": [
+        "SRC-AVR-HW"
+      ],
+      "adaptations": [
+        "Exact ABM8 12 pF load crystal uses equal 18 pF C0G loads based on 3 pF estimated stray."
+      ],
+      "checks": [
+        "Calculation is archived; compact placement/routing reviewed; P001 start-up margin test is explicitly required before hardware claim."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-MATRIX",
+      "function": "Ten CHERRY MX switches with one series diode per key in a 2\u00d75 COL2ROW scan matrix.",
+      "primary_source_ids": [
+        "SRC-SWITCH"
+      ],
+      "reference_source_ids": [
+        "SRC-MCU",
+        "SRC-QMK"
+      ],
+      "adaptations": [
+        "PD0/PD1 rows and PB4/PB5/PB6/PC6/PD7 columns match QMK; default codes F13\u2013F22."
+      ],
+      "checks": [
+        "Netlist and firmware contract check passes; diode polarity is documented on silkscreen and assembly notes."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-PROGRAM",
+      "function": "Reset, DFU software chord, and AVR-ISP recovery.",
+      "primary_source_ids": [
+        "SRC-MCU",
+        "SRC-QMK"
+      ],
+      "reference_source_ids": [
+        "SRC-RESET",
+        "SRC-AVR-HW"
+      ],
+      "adaptations": [
+        "Dedicated RESET button and 2\u00d73 AVR-ISP header; hold Key 10 plus Key 1 to enter DFU from firmware."
+      ],
+      "checks": [
+        "ISP header mapping and bootloader policy documented; firmware compile and contract audit pass."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    },
+    {
+      "id": "BLOCK-MECHANICAL",
+      "function": "Board outline, USB opening datum, key grid, mounting holes, and component bodies.",
+      "primary_source_ids": [
+        "SRC-CONN",
+        "SRC-SWITCH",
+        "SRC-RESET"
+      ],
+      "reference_source_ids": [],
+      "adaptations": [
+        "101\u00d773 mm bare board, 19.05 mm key grid, four 2.2 mm M2 holes; no enclosure/plate claim."
+      ],
+      "checks": [
+        "Native board stats and mechanical contract agree; Gerber/STEP/renders reviewed; incomplete switch STEP is explicitly labeled."
+      ],
+      "confidence": "verified",
+      "blocker": null
+    }
+  ]
+}

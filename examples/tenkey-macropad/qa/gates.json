@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "project_id": "tenkey-macropad-rev-a",
+  "gates": [
+    {
+      "gate_id": "R0",
+      "title": "Requirements",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "R0-001",
+          "result": "pass",
+          "criterion": "Every must requirement has an objective present or future verification method; scope exclusions and production stops are explicit.",
+          "observed": "Nine must requirements defined; physical P001 testing remains a required future gate before hardware claim.",
+          "evidence_files": [
+            "design/request.json"
+          ]
+        }
+      ],
+      "notes": "The release claim level is design-checks-passed, not prototype-tested."
+    },
+    {
+      "gate_id": "E0",
+      "title": "Evidence",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "E0-001",
+          "result": "pass",
+          "criterion": "Every functional circuit block has at least one archived Tier A/B primary source, a byte hash, adaptations, and completed engineering checks.",
+          "observed": "Seven block records verified against ten hashed primary/reference records; redistribution terms are explicit.",
+          "evidence_files": [
+            "design/evidence.json"
+          ]
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "gate_id": "S1",
+      "title": "Schematic",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "S1-001",
+          "result": "pass",
+          "criterion": "Fresh official KiCad ERC returns zero violations and PCB-to-schematic parity returns zero findings.",
+          "observed": "ERC 0; DRC schematic parity 0 at the release source revision.",
+          "evidence_files": [
+            "outputs/release/validation/macos/erc-all.json",
+            "outputs/release/validation/macos/drc-all.json"
+          ]
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "gate_id": "F1",
+      "title": "Footprints and BOM",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "F1-001",
+          "result": "pass",
+          "criterion": "All 48 board footprints match source pad geometry and the exact-MPN BOM covers all 44 schematic components.",
+          "observed": "48/48 pad-geometry pass; 44/44 components covered in 17 exact-MPN line items.",
+          "evidence_files": [
+            "outputs/release/validation/footprint-geometry-audit.json",
+            "outputs/release/assembly/TenKeyMacroPad-Exact-BOM.json"
+          ]
+        }
+      ],
+      "notes": "22 exposed lib_footprint_mismatch messages are generated metadata/text differences; pad geometry was independently hashed and compared."
+    },
+    {
+      "gate_id": "P1",
+      "title": "Power and clock",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "P1-001",
+          "result": "pass",
+          "criterion": "Power budget, USB capacitance, fuse/descriptor relationship, and crystal load calculation are numerically documented and consistent with exact values.",
+          "observed": "70 mA design budget <100 mA descriptor <250 mA PPTC hold; 4.7 \u00b5F bulk restores <10 \u00b5F nominal/tolerance margin; 18 pF equal loads plus 3 pF estimated stray target 12 pF.",
+          "evidence_files": [
+            "outputs/release/documentation/engineering-calculations.md",
+            "outputs/release/assembly/TenKeyMacroPad-Exact-BOM.csv"
+          ]
+        }
+      ],
+      "notes": "Current and crystal start margin remain prototype measurements, not claimed measurements."
+    },
+    {
+      "gate_id": "M0",
+      "title": "Mechanical",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "M0-001",
+          "result": "pass",
+          "criterion": "Board outline, holes, key pitch, connector datum, and enclosure scope are documented and agree with native board statistics.",
+          "observed": "101\u00d773 mm; four 2.2 mm holes; 19.05 mm key grid; render and native stats reviewed.",
+          "evidence_files": [
+            "outputs/release/documentation/mechanical-contract.md",
+            "outputs/release/cad/TenKeyMacroPad-board-stats-native.json",
+            "outputs/release/documentation/TenKeyMacroPad-top.png"
+          ]
+        }
+      ],
+      "notes": "No enclosure/plate fit claim; partial component STEP omits switch bodies."
+    },
+    {
+      "gate_id": "C1",
+      "title": "Constraints and rules",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "C1-001",
+          "result": "pass",
+          "criterion": "Released rules encode general geometry, USB pair, power, and narrowly scoped connector land-pattern behavior; ignored checks are enumerated.",
+          "observed": "Official DRC passes severity-all; ignored-rule exposure finds only 22 intentional library metadata mismatches and no hidden connectivity/parity issue.",
+          "evidence_files": [
+            "outputs/release/source/TenKeyMacroPad.kicad_dru",
+            "outputs/release/validation/supplemental/ignored-rule-audit-summary.json",
+            "outputs/release/validation/macos/drc-all.json"
+          ]
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "gate_id": "L1",
+      "title": "Placement",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "L1-001",
+          "result": "pass",
+          "criterion": "Critical USB/ESD/series/MCU, clock, decoupling, ISP/reset, switches, and polarity markings are visually reviewable without detected fabrication-layer error.",
+          "observed": "Top/bottom 3D renders, assembly PDFs, and independent Gerber composites were inspected; reference, polarity, and J1 THT-process markings are legible.",
+          "evidence_files": [
+            "outputs/release/documentation/TenKeyMacroPad-top.png",
+            "outputs/release/documentation/TenKeyMacroPad-bottom.png",
+            "outputs/release/inspection/gerbv/composite-all.png"
+          ]
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "gate_id": "R1",
+      "title": "Routing, ground, and DRC",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "R1-001",
+          "result": "pass",
+          "criterion": "Fresh official KiCad DRC reports zero violations, zero unconnected, and zero parity issues; supplemental routing and ground audits pass.",
+          "observed": "DRC 0/0/0; 48 footprints, 365 segments, 34 vias, two GND zones; structural and ground audits pass.",
+          "evidence_files": [
+            "outputs/release/validation/macos/drc-all.json",
+            "outputs/release/validation/structural-audit.json",
+            "outputs/release/validation/ground-connectivity-audit.json"
+          ]
+        }
+      ],
+      "notes": "Autorouting was used only after deterministic critical paths; all copper is unlocked. USB is not claimed controlled impedance."
+    },
+    {
+      "gate_id": "FW1",
+      "title": "Firmware contract and build",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "FW1-001",
+          "result": "pass",
+          "criterion": "Pinned QMK firmware compiles for ATmega32U4 and all declared matrix, USB, reset, and ISP pins match the released netlist.",
+          "observed": "QMK commit 9caa5f8; AVR-GCC build pass; 35/35 contract checks pass; HEX SHA-256 750c9466\u202641cda84.",
+          "evidence_files": [
+            "outputs/release/firmware/firmware-build-manifest.json",
+            "outputs/release/firmware/tenkey_macropad_revA_default.hex",
+            "outputs/release/validation/supplemental/firmware-contract-check.json"
+          ]
+        }
+      ],
+      "notes": "FEED:0010 is prototype-only and must not be commercially distributed."
+    },
+    {
+      "gate_id": "M1",
+      "title": "Manufacturing outputs",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "M1-001",
+          "result": "pass",
+          "criterion": "The DFM/RFQ package contains the required Gerber/drill, exact BOM, SMT CPL, notes, test netlist, exchange CAD, assembly views, and valid archives.",
+          "observed": "Core verification and augmentation pass; Gerber upload has 11 required members; RFQ and IPC-2581 CRC checks pass; SMT CPL has 30 rows and excludes THT J1.",
+          "evidence_files": [
+            "outputs/release/validation/release-verification.json",
+            "outputs/release/validation/augmentation-check.json",
+            "outputs/release/fabrication/TenKeyMacroPad-RevA-RFQ.zip"
+          ]
+        }
+      ],
+      "notes": "No VIPPO process remains. Confirm JLCPCB or the selected assembler will perform the explicit J1 THT/wave-selective/manual soldering step."
+    },
+    {
+      "gate_id": "T1",
+      "title": "Prototype bring-up",
+      "status": "blocked",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "T1-001",
+          "result": "blocked",
+          "criterion": "P001 must pass current-limited power, rails, clock, both USB orientations, enumeration, DFU/ISP, all-key, ghosting, and soak tests with archived measurements.",
+          "observed": "No PCB has been fabricated or electrically measured.",
+          "evidence_files": [
+            "outputs/release/documentation/bring-up-plan.md"
+          ]
+        }
+      ],
+      "notes": "Unexecuted by design. Required before prototype-tested or production-validated claim."
+    },
+    {
+      "gate_id": "REL",
+      "title": "Release integrity",
+      "status": "pass",
+      "checked_at": "2026-08-10T02:30:00Z",
+      "source_revision": "source-set-sha256:facdebc103901782e2b7c76cb9ee56ecde225c33adf509c65624e50af2eda649",
+      "reviewer": "Prime Agent design owner (automated gates plus recorded visual review)",
+      "checks": [
+        {
+          "check_id": "REL-001",
+          "result": "pass",
+          "criterion": "Core/augmentation verifiers pass, released source hashes match canonical source files, and a complete hash list is generated.",
+          "observed": "Both verification summaries pass and released source board hash equals canonical board hash at the immutable source-set revision.",
+          "evidence_files": [
+            "outputs/release/validation/release-verification.json",
+            "outputs/release/validation/augmentation-check.json",
+            "outputs/release/SOURCE_SHA256SUMS"
+          ]
+        }
+      ],
+      "notes": "Repository-wide worktree is intentionally not claimed clean; release identity is the explicit source-set SHA-256 plus per-artifact hashes."
+    }
+  ]
+}
