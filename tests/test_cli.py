@@ -127,8 +127,13 @@ class PipelineCliTests(unittest.TestCase):
         self.assertIn("GitNexus", report["components"])
         self.assertIn("PyGerber", report["components"])
         self.assertIn("QMK container", report["components"])
-        self.assertEqual(report["prerequisites"]["kicad-cli"]["status"], "pass")
-        self.assertEqual(report["prerequisites"]["docker"]["status"], "pass")
+        # A dry-run is an inventory operation, so it must remain useful on a
+        # clean machine.  Missing prerequisites are reported truthfully and
+        # are enforced only when an installation that needs them is applied.
+        for tool in ("kicad-cli", "docker"):
+            state = report["prerequisites"][tool]
+            self.assertIn(state["status"], {"pass", "fail"})
+            self.assertEqual(state["status"], "pass" if state["path"] else "fail")
         self.assertEqual(report["destinations"]["skills"], str((codex_home / "skills").resolve()))
         self.assertEqual(
             report["destinations"]["mcp"],
