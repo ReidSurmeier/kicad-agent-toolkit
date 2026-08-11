@@ -20,18 +20,26 @@ the release path must remain operable from a terminal and clean process.
 3. Run `./pcb-agent install`. It atomically installs the three skill bundles,
    stages the pinned audited MCP fork under `CODEX_HOME/tools`, builds its Node
    and Python environments, and registers its stdio command with Codex. Existing
-   toolkit installations are moved into timestamped recoverable backups.
+   toolkit installations are moved into timestamped recoverable backups. It
+   also stages the pinned Playwright-based HQDFM browser runner.
 4. Do not persist JLCPCB credentials on the user's behalf. Have the user inject
    them into the Codex process through inherited environment variables or a
    user-owned OS keychain wrapper. Use the exact names `JLCPCB_APP_ID`,
    `JLCPCB_API_KEY`, and `JLCPCB_API_SECRET`. Never place their values in Git,
    Codex skill files, shell history, examples, or generated reports.
-5. Run `./pcb-agent doctor --json` and retain its machine-readable report. Confirm
+5. If external DFM is required, use local Chrome/Chromium or inject
+   `BROWSERBASE_API_KEY` through the same secret boundary. Never store the key
+   in the repository. Require `--allow-upload`, because the fabrication archive
+   leaves the machine. Do not bypass JLCDFM login or use undocumented endpoints;
+   use the supported HQDFM public workflow when a no-login checker is needed.
+6. Run `./pcb-agent doctor --json` and retain its machine-readable report. Confirm
    `kicad-cli`, ERC/DRC, Gerber/drill export, independent parsing, KiBot, MCP tool
    discovery, and GitNexus indexing on a disposable fixture project.
-6. Run `./pcb-agent validate`, `./pcb-agent mcp test`, and
+7. Run `./pcb-agent validate`, `./pcb-agent mcp test`, and
    `./pcb-agent release examples/tenkey-macropad/source/TenKeyMacroPad.kicad_pro`.
-   Restart Codex and confirm the three installed skills are discoverable.
+   Restart Codex and confirm the three installed skills are discoverable. For
+   external DFM, run `./pcb-agent dfm <fabrication.zip> --allow-upload` and keep
+   the source-hash-bound evidence; a nonzero result leaves the gate blocked.
 
 The bundled release command is a JLCPCB-style two-layer profile and expects the
 project's `.kibot.yaml`. A missing configuration blocks the default release.

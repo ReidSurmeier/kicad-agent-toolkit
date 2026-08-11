@@ -18,22 +18,34 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            browser/package-lock.json
+            vendor/KiCAD-MCP-Server/package-lock.json
       - name: Install test dependencies
-        run: python -m pip install -r requirements-dev.txt
+        run: |
+          python -m pip install -r requirements-dev.txt
+          npm ci --prefix browser --omit=dev --ignore-scripts
+          npm audit --prefix browser --omit=dev
       - name: Validate repository and public CLI
         run: |
-          ./pcb-agent validate
+          ./scripts/validate.py --repo .
+          ./scripts/install.sh --dry-run
           python -m unittest tests.test_cli.PipelineCliTests.test_help_exposes_the_confirmed_pipeline
           python -m unittest tests.test_cli.PipelineCliTests.test_validate_reports_a_machine_readable_repository_pass
           python -m unittest tests.test_cli.PipelineCliTests.test_validate_rejects_an_incomplete_skill_bundle
           python -m unittest tests.test_cli.PipelineCliTests.test_install_dry_run_describes_the_full_pipeline_without_writing
           python -m unittest tests.test_cli.PipelineCliTests.test_install_copies_validated_skills_without_credentials
           python -m unittest tests.test_cli.PipelineCliTests.test_install_stages_the_pinned_mcp_without_credentials
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: vendor/KiCAD-MCP-Server/package-lock.json
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_requires_explicit_external_upload_acknowledgement
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_rejects_a_zip_without_kicad_or_fabrication_data
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_captures_a_no_findings_external_report_with_source_hash
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_fails_closed_when_the_external_report_contains_findings
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_fails_closed_on_an_unquantified_reported_failure
+          python -m unittest tests.test_cli.PipelineCliTests.test_dfm_auto_prefers_an_injected_browserbase_session
       - name: Audit and test the patched MCP server
         working-directory: vendor/KiCAD-MCP-Server
         run: |

@@ -26,6 +26,7 @@ pcb-agent doctor      report every host tool, registration, and credential state
 pcb-agent validate    verify skill completeness and the pinned MCP revision
 pcb-agent mcp test    negotiate MCP and discover its routing tools over stdio
 pcb-agent release     build and independently verify a manufacturing package
+pcb-agent dfm         upload an archive to HQDFM and preserve its PDF evidence
 ```
 
 All reports expose credential state only as `configured` or `not configured`.
@@ -40,6 +41,52 @@ wrapper or a short-lived inherited environment. Do not put them in `.env`,
 API service access can remain unavailable while the corresponding JLCPCB app
 services are under review. Rotate any key that has been pasted into chat or
 another durable transcript before production use.
+
+JLCDFM's public upload page is a separate browser workflow. It requires a
+normal authenticated JLCPCB account session but not approval for JLCPCB's app
+API. This toolkit deliberately does not call undocumented upload endpoints,
+replay session cookies, automate a CAPTCHA, or otherwise bypass that login.
+
+## External DFM browser workflow
+
+The supported autonomous path uses the public
+[NextPCB HQDFM Online](https://www.nextpcb.com/free-online-gerber-viewer.html)
+interface. NextPCB documents no-sign-up use, native KiCad or Gerber/Excellon ZIP
+uploads, 20-plus DFM categories, a downloadable PDF, HTTPS transport, and
+automatic deletion after 24 hours. Treat those statements as provider policy,
+not a local guarantee, and review them again before uploading sensitive designs.
+
+First run `pcb-agent release`, then pass its exact fabrication ZIP:
+
+```bash
+./pcb-agent dfm /path/to/Board-JLCPCB.zip \
+  --allow-upload --browser-backend local --output /path/to/dfm-evidence
+```
+
+For an unattended remote browser, inject `BROWSERBASE_API_KEY` without exposing
+its value and use:
+
+```bash
+./pcb-agent dfm /path/to/Board-JLCPCB.zip \
+  --allow-upload --browser-backend browserbase --output /path/to/dfm-evidence
+```
+
+`auto` selects Browserbase when the key is inherited and otherwise selects a
+local Chrome/Chromium executable. Browserbase usage follows its documented
+[Playwright CDP session](https://docs.browserbase.com/welcome/quickstarts/playwright)
+and [download API](https://docs.browserbase.com/platform/browser/files/downloads).
+The remote PDF is deleted from Browserbase after retrieval; cleanup status is
+recorded and cleanup failure fails the gate. The command never serializes the
+key or the Browserbase connection URL.
+
+The CLI verifies ZIP integrity and board-data members before network contact,
+extracts the returned PDF with `pdftotext`, fails closed on malformed or
+unquantified failure output, and emits `dfm-report.json`, the PDF, extracted
+text, sanitized logs, and `SHA256SUMS`. The report binds the result to the exact
+archive SHA-256. Exit zero means only that HQDFM reported no findings. Any
+findings, missing report, parser ambiguity, timeout, browser failure, or cloud
+cleanup failure returns nonzero. HQDFM is independent evidence and cannot stand
+in for JLCPCB review, KiCad ERC/DRC, exact-part review, or physical bring-up.
 
 ## Release evidence
 
@@ -73,7 +120,8 @@ workspace and a dedicated Codex home into a separately configured container;
 never mount the host home directory or Docker socket.
 
 The GitHub workflow checks out submodules, validates the toolkit, exercises the
-safe installer seams, audits/builds the MCP, and runs its TypeScript suite.
+safe installer and DFM seams, audits the pinned browser dependency, audits/builds
+the MCP, and runs its TypeScript suite.
 Native KiCad and release integration remain local/container gates because the
 host runner must provide the EDA dependencies.
 

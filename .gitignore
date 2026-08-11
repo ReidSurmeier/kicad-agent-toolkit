@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .gitnexus/
 .venv/
+browser/node_modules/
 build/
 dist/
 outputs/

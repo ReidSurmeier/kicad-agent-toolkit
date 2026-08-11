@@ -22,7 +22,7 @@ documented physical bring-up tests pass.
 - `docs/case-studies/`: lessons extracted from the ten-key USB-C board.
 - `examples/tenkey-macropad/`: sanitized design evidence and selected source files.
 - `pcb-agent`: one public CLI for install, diagnosis, validation, MCP testing,
-  and release generation.
+  release generation, and supplemental external DFM analysis.
 - `vendor/KiCAD-MCP-Server/`: pinned submodule for the audited MCP fork.
 - `toolchain.lock.json`: exact revisions, container digests, versions, licenses,
   audit counts, and upstream test evidence.
@@ -66,6 +66,31 @@ is present, it also compiles the default keymap against the pinned QMK checkout
 and AVR toolchain. The upload artifact is
 `outputs/release/<project>/fabrication/<project>-JLCPCB.zip`.
 
+## Run supplemental external DFM
+
+Generate the fabrication archive first, then explicitly authorize its upload to
+NextPCB HQDFM Online:
+
+```bash
+./pcb-agent dfm outputs/release/Board/fabrication/Board-JLCPCB.zip \
+  --allow-upload --browser-backend local
+```
+
+For unattended runs, inject `BROWSERBASE_API_KEY` from a user-owned secret
+wrapper and select `--browser-backend browserbase`. The key is inherited by the
+runner and is never written to the report. The command uploads through the
+provider's normal public web interface, downloads and parses the PDF, records
+source and report hashes, and returns nonzero if the report has findings or
+cannot be interpreted. Browserbase's temporary report download is deleted after
+local retrieval.
+
+This does not bypass JLCPCB API approval. JLCDFM's public page uses an ordinary
+JLCPCB account session; the toolkit does not replay private endpoints or evade
+that login. HQDFM is the supported no-login alternative and remains an
+independent supplemental check, not JLCPCB process approval or proof of physical
+function. Review the fabrication data and the provider's current data terms
+before using `--allow-upload`.
+
 To run the entire release in a container, place the project directory in
 `PCB_PROJECT_DIR` and its project filename in `PCB_PROJECT_FILE`:
 
@@ -73,8 +98,9 @@ To run the entire release in a container, place the project directory in
 PCB_PROJECT_DIR=/path/to/project PCB_PROJECT_FILE=Board.kicad_pro docker compose run --rm pcb-agent
 ```
 
-See [the full pipeline](docs/toolchain.md) for installation branches, MCP and
-JLCPCB credential boundaries, release evidence, CI, GitNexus, and limitations.
+See [the full pipeline](docs/toolchain.md) for installation branches, MCP,
+Browserbase and JLCPCB credential boundaries, release/DFM evidence, CI,
+GitNexus, and limitations.
 
 ## Evidence policy
 
