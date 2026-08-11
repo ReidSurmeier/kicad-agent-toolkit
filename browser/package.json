@@ -1,0 +1,9 @@
+{
+  "name": "pcb-agent-dfm-browser",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "1.61.1"
+  }
+}

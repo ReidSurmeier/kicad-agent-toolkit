@@ -21,6 +21,18 @@
       "python_skipped_hardware_or_platform": 31
     }
   },
+  "browser_automation": {
+    "playwright_core": "1.61.1",
+    "license": "Apache-2.0",
+    "source": "https://www.npmjs.com/package/playwright-core",
+    "audit": {
+      "production_vulnerabilities": 0
+    },
+    "providers": [
+      "Browserbase CDP",
+      "local Chrome or Chromium"
+    ]
+  },
   "containers": {
     "toolkit_release": {
       "base": "ghcr.io/inti-cmnb/kicad10_auto@sha256:c154fc3457a4572c365a8c48aabd3ede76338476d7ef4c83aae2d9654f8181a8",
@@ -50,6 +62,7 @@
     "gitnexus": {"verified": "1.6.9", "source": "https://github.com/abhigyanpatwari/GitNexus", "license": "PolyForm-Noncommercial-1.0.0"},
     "docker": {"verified": "29.6.1", "source": "https://docs.docker.com/engine/install/"},
     "node": {"verified": "22.23.1", "minimum": "20.0.0", "source": "https://nodejs.org/"},
+    "pdftotext": {"verified": "24.02.0", "source": "https://poppler.freedesktop.org/"},
     "python": {"verified": "3.9.6", "minimum": "3.9.0", "source": "https://www.python.org/"},
     "codex": {"verified": "0.147.0", "source": "https://developers.openai.com/codex/cli/"}
   }

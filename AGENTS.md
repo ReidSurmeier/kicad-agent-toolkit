@@ -19,3 +19,19 @@ Run the public validation interfaces after changes:
 ./scripts/validate.py --repo .
 ./scripts/install.sh --dry-run
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Track issues and PRDs in this repository's GitHub Issues. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the canonical `needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, and `wontfix` labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context documentation layout. See `docs/agents/domain.md`.

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import select
 import shutil
 import subprocess
@@ -32,6 +33,7 @@ def parser() -> ArgumentParser:
     install.add_argument("--skip-mcp-build", action="store_true")
     install.add_argument("--skip-mcp-registration", action="store_true")
     install.add_argument("--skip-qmk-setup", action="store_true")
+    install.add_argument("--skip-dfm-browser-build", action="store_true")
     install.add_argument("--skip-gitnexus", action="store_true")
     doctor = commands.add_parser("doctor", help="report toolchain readiness")
     doctor.add_argument("--json", action="store_true", dest="as_json")
@@ -48,6 +50,18 @@ def parser() -> ArgumentParser:
     release.add_argument("--output", type=Path)
     release.add_argument("--skip-container", action="store_true")
     release.add_argument("--json", action="store_true", dest="as_json")
+    dfm = commands.add_parser("dfm", help="run an external DFM analysis on a fabrication archive")
+    dfm.add_argument("archive", type=Path)
+    dfm.add_argument("--provider", choices=("nextpcb",), default="nextpcb")
+    dfm.add_argument("--output", type=Path)
+    dfm.add_argument("--allow-upload", action="store_true")
+    dfm.add_argument(
+        "--browser-backend",
+        choices=("auto", "browserbase", "local"),
+        default="auto",
+    )
+    dfm.add_argument("--timeout", type=float, default=180.0)
+    dfm.add_argument("--json", action="store_true", dest="as_json")
     return root
 
 
@@ -106,10 +120,30 @@ def repository_report(root: Path) -> dict:
     ):
         failures.append("MCP revision does not match the pinned toolchain")
 
+    expected_browser = lock.get("browser_automation", {})
+    browser_package = root / "browser" / "package.json"
+    browser_lock = root / "browser" / "package-lock.json"
+    browser_runner = root / "browser" / "nextpcb-dfm.mjs"
+    browser = {
+        "playwright_core": None,
+        "production_vulnerabilities": expected_browser.get("audit", {}).get(
+            "production_vulnerabilities"
+        ),
+    }
+    if browser_package.is_file() and browser_lock.is_file() and browser_runner.is_file():
+        browser["playwright_core"] = json.loads(browser_package.read_text()).get(
+            "dependencies", {}
+        ).get("playwright-core")
+    else:
+        failures.append("DFM browser automation bundle is incomplete")
+    if browser["playwright_core"] != expected_browser.get("playwright_core"):
+        failures.append("DFM browser automation revision does not match the pinned toolchain")
+
     return {
         "result": "pass" if not failures else "fail",
         "skills": skills,
         "mcp": mcp,
+        "browser_automation": browser,
         "failures": failures,
     }
 
@@ -153,6 +187,7 @@ def doctor_report(root: Path) -> dict:
         "kicad-cli": ["--version"],
         "node": ["--version"],
         "npm": ["--version"],
+        "pdftotext": ["-v"],
         "pygerber": ["--version"],
         "python3": ["--version"],
     }
@@ -171,15 +206,37 @@ def doctor_report(root: Path) -> dict:
     }
     credential_names = ("JLCPCB_APP_ID", "JLCPCB_API_KEY", "JLCPCB_API_SECRET")
     credentials = {
-        "jlcpcb": "configured" if all(os.environ.get(name) for name in credential_names) else "not configured"
+        "jlcpcb": "configured" if all(os.environ.get(name) for name in credential_names) else "not configured",
+        "browserbase": "configured" if os.environ.get("BROWSERBASE_API_KEY") else "not configured",
+    }
+    source_browser_root = root / "browser"
+    installed_browser_root = Path(
+        os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
+    ) / "tools" / "nextpcb-dfm-browser"
+    browser_root = (
+        installed_browser_root
+        if (installed_browser_root / "nextpcb-dfm.mjs").is_file()
+        and (installed_browser_root / "node_modules" / "playwright-core").is_dir()
+        else source_browser_root
+    )
+    local_chrome = next(
+        (candidate for name in ("google-chrome", "chromium", "chromium-browser") if (candidate := shutil.which(name))),
+        None,
+    )
+    dfm_browser = {
+        "runner": "pass" if (browser_root / "nextpcb-dfm.mjs").is_file() else "fail",
+        "playwright_core": "pass" if (browser_root / "node_modules" / "playwright-core").is_dir() else "fail",
+        "local_browser": "pass" if local_chrome else "not configured",
+        "browserbase": credentials["browserbase"],
     }
     passed = all(item["status"] == "pass" for item in tools.values()) and all(
         value == "pass" for value in mcp.values()
-    )
+    ) and dfm_browser["runner"] == "pass" and dfm_browser["playwright_core"] == "pass"
     return {
         "result": "pass" if passed else "fail",
         "tools": tools,
         "mcp": mcp,
+        "dfm_browser": dfm_browser,
         "credentials": credentials,
     }
 
@@ -195,6 +252,8 @@ def doctor_command(args: Namespace) -> int:
         print(f"- MCP build: {report['mcp']['build']}")
         print(f"- Codex MCP registration: {report['mcp']['codex_registration']}")
         print(f"- JLCPCB credentials: {report['credentials']['jlcpcb']}")
+        print(f"- Browserbase credentials: {report['credentials']['browserbase']}")
+        print(f"- External DFM runner: {report['dfm_browser']['runner']}")
     return 0 if report["result"] == "pass" else 1
 
 
@@ -208,6 +267,7 @@ def install_command(args: Namespace) -> int:
         "kicad-cli": ["--version"],
         "node": ["--version"],
         "npm": ["--version"],
+        "pdftotext": ["-v"],
         "pygerber": ["--version"],
         "python3": ["--version"],
     }
@@ -227,6 +287,7 @@ def install_command(args: Namespace) -> int:
             "skills": str((args.codex_home.resolve() / "skills")),
             "mcp": str((args.codex_home.resolve() / "tools" / "kicad-mcp-server")),
             "qmk": str((args.codex_home.resolve() / "tools" / "qmk_firmware")),
+            "dfm_browser": str((args.codex_home.resolve() / "tools" / "nextpcb-dfm-browser")),
         },
         "components": [
             "KiCAD-MCP-Server",
@@ -235,6 +296,7 @@ def install_command(args: Namespace) -> int:
             "GitNexus",
             "PyGerber",
             "QMK container",
+            "NextPCB HQDFM browser runner",
         ],
     }
     if not args.dry_run:
@@ -275,6 +337,40 @@ def install_command(args: Namespace) -> int:
                         )
 
                 lock = json.loads((root / "toolchain.lock.json").read_text())
+                browser_source = root / "browser"
+                browser_target = args.codex_home.resolve() / "tools" / "nextpcb-dfm-browser"
+                browser_staging = browser_target.parent / ".nextpcb-dfm-browser.installing"
+                browser_target.parent.mkdir(parents=True, exist_ok=True)
+                if browser_staging.exists():
+                    shutil.rmtree(browser_staging)
+                shutil.copytree(
+                    browser_source,
+                    browser_staging,
+                    ignore=shutil.ignore_patterns("node_modules"),
+                )
+                browser_report = {"path": str(browser_target)}
+                if args.skip_dfm_browser_build:
+                    browser_report["build"] = "skipped"
+                else:
+                    subprocess.run(
+                        ["npm", "ci", "--omit=dev", "--ignore-scripts"],
+                        cwd=browser_staging,
+                        check=True,
+                    )
+                    browser_report["build"] = "pass"
+                if browser_target.exists():
+                    browser_backup = (
+                        args.codex_home.resolve()
+                        / "backups"
+                        / "kicad-agent-toolkit"
+                        / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                        / "nextpcb-dfm-browser"
+                    )
+                    browser_backup.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(browser_target), str(browser_backup))
+                os.replace(browser_staging, browser_target)
+                report["dfm_browser"] = browser_report
+
                 source = root / "vendor" / "KiCAD-MCP-Server"
                 target = args.codex_home.resolve() / "tools" / "kicad-mcp-server"
                 staging = target.parent / ".kicad-mcp-server.installing"
@@ -706,6 +802,19 @@ def release_command(args: Namespace) -> int:
             corrupt = bundle.testzip()
             if corrupt is not None:
                 raise RuntimeError(f"fabrication archive CRC failed: {corrupt}")
+            members = [Path(name) for name in bundle.namelist() if not name.endswith("/")]
+            suffixes = {member.suffix.lower() for member in members}
+            gerber_suffixes = {
+                ".gbr", ".ger", ".gtl", ".gbl", ".gts", ".gbs", ".gto", ".gbo", ".gko", ".gm1",
+            }
+            has_kicad_board = ".kicad_pcb" in suffixes
+            has_fabrication_set = bool(suffixes & gerber_suffixes) and bool(
+                suffixes & {".drl", ".xln"}
+            )
+            if not has_kicad_board and not has_fabrication_set:
+                raise RuntimeError(
+                    "fabrication archive must contain Gerber and drill files or a KiCad PCB"
+                )
         report["checks"]["archive_crc"] = "pass"
         if args.skip_container:
             report["checks"]["container"] = "skipped"
@@ -831,6 +940,207 @@ def release_command(args: Namespace) -> int:
     return 0 if report["result"] == "pass" else 1
 
 
+def dfm_command(args: Namespace) -> int:
+    report = {"result": "blocked", "provider": args.provider}
+    staging = None
+    try:
+        if not args.allow_upload:
+            raise RuntimeError(
+                "external upload not acknowledged; pass --allow-upload to send the fabrication "
+                "archive to NextPCB HQDFM Online"
+            )
+        archive = args.archive.resolve()
+        if not archive.is_file() or not zipfile.is_zipfile(archive):
+            raise RuntimeError(f"fabrication archive is not a valid ZIP: {archive}")
+        with zipfile.ZipFile(archive) as bundle:
+            corrupt = bundle.testzip()
+            if corrupt is not None:
+                raise RuntimeError(f"fabrication archive CRC failed: {corrupt}")
+            suffixes = {
+                Path(name).suffix.lower()
+                for name in bundle.namelist()
+                if not name.endswith("/")
+            }
+            gerber_suffixes = {
+                ".gbr", ".ger", ".gtl", ".gbl", ".gts", ".gbs", ".gto", ".gbo", ".gko", ".gm1",
+            }
+            has_kicad_board = ".kicad_pcb" in suffixes
+            has_fabrication_set = bool(suffixes & gerber_suffixes) and bool(
+                suffixes & {".drl", ".xln"}
+            )
+            if not has_kicad_board and not has_fabrication_set:
+                raise RuntimeError(
+                    "fabrication archive must contain Gerber and drill files or a KiCad PCB"
+                )
+
+        archive_sha256 = _sha256(archive)
+        root = Path(__file__).resolve().parent
+        runner_override = os.environ.get("PCB_AGENT_DFM_RUNNER")
+        installed_runner = Path(
+            os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
+        ) / "tools" / "nextpcb-dfm-browser" / "nextpcb-dfm.mjs"
+        runner = (
+            Path(runner_override).resolve()
+            if runner_override
+            else installed_runner if installed_runner.is_file()
+            else root / "browser" / "nextpcb-dfm.mjs"
+        )
+        if not runner.is_file():
+            raise RuntimeError(f"external DFM runner is not installed: {runner}")
+        browser_backend = args.browser_backend
+        if browser_backend == "auto":
+            browser_backend = "browserbase" if os.environ.get("BROWSERBASE_API_KEY") else "local"
+        if browser_backend == "browserbase" and not os.environ.get("BROWSERBASE_API_KEY"):
+            raise RuntimeError(
+                "BROWSERBASE_API_KEY is required for the Browserbase backend; inject it through "
+                "a user-owned secret wrapper"
+            )
+        chrome = None
+        if browser_backend == "local":
+            chrome_override = os.environ.get("PCB_AGENT_CHROME")
+            chrome = chrome_override or next(
+                (candidate for name in ("google-chrome", "chromium", "chromium-browser") if (candidate := shutil.which(name))),
+                None,
+            )
+            if chrome is None or not Path(chrome).is_file():
+                raise RuntimeError("Google Chrome or Chromium is required for the local browser upload workflow")
+        pdftotext = shutil.which("pdftotext")
+        if pdftotext is None:
+            raise RuntimeError("pdftotext is required to inspect the external DFM report")
+
+        output = (args.output or archive.parent / f"{archive.stem}-dfm").resolve()
+        staging = output.parent / f".{output.name}.building"
+        if staging.exists():
+            stale = output.parent / f".{output.name}.stale-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            shutil.move(str(staging), str(stale))
+        staging.mkdir(parents=True)
+        logs = staging / "logs"
+        logs.mkdir()
+        pdf = staging / "hqdfm-report.pdf"
+        command = (
+            [shutil.which("node") or "node", str(runner)]
+            if runner.suffix == ".mjs"
+            else [str(runner)]
+        )
+        command.extend(
+            [
+                "--archive", str(archive),
+                "--output", str(pdf),
+                "--backend", browser_backend,
+            ]
+        )
+        if chrome:
+            command.extend(["--chrome", str(chrome)])
+        command.extend(["--timeout", str(args.timeout)])
+        completed = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=args.timeout + 30,
+        )
+        (logs / "browser-runner.log").write_text(
+            "$ " + " ".join(command[:1] + ["<runner>", "--archive", "<archive>", "--output", "<report>", "--backend", browser_backend, "--timeout", str(args.timeout)])
+            + "\n\nstdout:\n" + completed.stdout + "\nstderr:\n" + completed.stderr
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(f"NextPCB HQDFM browser runner failed; see {logs / 'browser-runner.log'}")
+        runner_report = json.loads(completed.stdout)
+        if runner_report.get("result") != "completed" or not pdf.is_file():
+            raise RuntimeError("NextPCB HQDFM did not produce a completed PDF report")
+        if pdf.stat().st_size < 1024 or not pdf.read_bytes().startswith(b"%PDF"):
+            raise RuntimeError("NextPCB HQDFM report is not a valid non-empty PDF")
+        if _sha256(archive) != archive_sha256:
+            raise RuntimeError("fabrication archive changed during external DFM analysis")
+        report_pdf_sha256 = _sha256(pdf)
+        remote_download = runner_report.get("remoteDownload")
+        if isinstance(remote_download, dict):
+            remote_checksum = remote_download.get("checksum")
+            if remote_checksum and remote_checksum != report_pdf_sha256:
+                raise RuntimeError("Browserbase download checksum does not match the retrieved PDF")
+
+        text_report = staging / "hqdfm-report.txt"
+        extracted = subprocess.run(
+            [pdftotext, "-layout", str(pdf), str(text_report)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        (logs / "pdftotext.log").write_text(extracted.stdout)
+        if extracted.returncode != 0 or not text_report.is_file():
+            raise RuntimeError(f"failed to extract HQDFM report text; see {logs / 'pdftotext.log'}")
+        report_text = text_report.read_text(errors="replace")
+        if "HQDFM Design for Manufacture(DFM) Report" not in report_text:
+            raise RuntimeError("downloaded PDF does not identify itself as an HQDFM report")
+        failure_counts = [int(value) for value in re.findall(r"\bFail\s+(\d+)\b", report_text)]
+        has_failure_label = re.search(r"\bFail\b", report_text) is not None
+        if has_failure_label and not failure_counts:
+            finding_count = None
+            verdict = "reported-findings-unquantified"
+            result = "fail"
+        else:
+            finding_count = sum(failure_counts)
+            verdict = "reported-findings" if finding_count else "no-reported-findings"
+            result = "fail" if finding_count else "pass"
+        report.update(
+            {
+                "result": result,
+                "analysis_status": "completed",
+                "verdict": verdict,
+                "finding_count": finding_count,
+                "browser_backend": browser_backend,
+                "archive": str(archive),
+                "archive_sha256": archive_sha256,
+                "output": str(output),
+                "report_pdf": str(output / pdf.name),
+                "report_pdf_sha256": report_pdf_sha256,
+                "report_text": str(output / text_report.name),
+                "provider_url": "https://www.nextpcb.com/free-online-gerber-viewer.html",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "limitations": [
+                    "HQDFM Online is an independent supplemental checker, not JLCPCB process approval.",
+                    "A no-reported-findings result does not prove electrical function or fabrication readiness.",
+                    "The uploaded archive is handled under the provider's current privacy and retention terms.",
+                ],
+            }
+        )
+        if runner_report.get("sessionId"):
+            report["browser_session_id"] = str(runner_report["sessionId"])
+        if isinstance(remote_download, dict):
+            report["browserbase_download"] = {
+                "checksum": remote_download.get("checksum"),
+                "size": remote_download.get("size"),
+                "cloud_cleanup": remote_download.get("cloudCleanup", "unknown"),
+            }
+            if report["browserbase_download"]["cloud_cleanup"] != "pass":
+                report["result"] = "fail"
+                report["verdict"] = "browserbase-cloud-cleanup-failed"
+        (staging / "dfm-report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        artifacts = sorted(path for path in staging.rglob("*") if path.is_file() and path.name != "SHA256SUMS")
+        (staging / "SHA256SUMS").write_text(
+            "".join(f"{_sha256(path)}  {path.relative_to(staging)}\n" for path in artifacts)
+        )
+        if output.exists():
+            backup = output.parent / f"{output.name}.backup-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            shutil.move(str(output), str(backup))
+        os.replace(staging, output)
+        staging = None
+    except (OSError, ValueError, json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as error:
+        report["error"] = str(error)
+    if args.as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"external DFM: {report['result']}")
+        if report.get("error"):
+            print(f"- error: {report['error']}")
+        else:
+            print(f"- verdict: {report['verdict']}")
+            print(f"- report: {report['report_pdf']}")
+    return 0 if report["result"] == "pass" else 1
+
+
 def main() -> int:
     args = parser().parse_args()
     if args.command == "install":
@@ -843,6 +1153,8 @@ def main() -> int:
         return mcp_test_command(args)
     if args.command == "release":
         return release_command(args)
+    if args.command == "dfm":
+        return dfm_command(args)
     return 0
 
 
